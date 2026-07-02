@@ -316,6 +316,15 @@ Completion status:
 | UC1-T1 | Done | Fixture `support_refund_happy_001` exists and loads into typed `SupportFixture`; verified with `.venv/bin/python -m pytest`. |
 | UC1-T2 | Done | Support domain Pydantic models use explicit enums and validate fixture references; verified with `.venv/bin/python -m pytest`. |
 | UC1-T3 | Done | Fixture loader, runtime state deep copy, typed snapshot, and deterministic hash are implemented; verified with `.venv/bin/python -m pytest`. |
+| UC1-T4 | Done | Qwen extraction schema uses typed domain, intent, and transition IDs; fixture fallback extraction validates `expected_extraction`; verified with `.venv/bin/python -m pytest`. |
+| UC1-T5 | Done | Deterministic lookup tools resolve customer, order, payments, ticket, and duplicate captured payment from the happy fixture; verified with `.venv/bin/python -m pytest`. |
+| UC1-T6 | Done | `create_refund` requires an idempotency key, creates one completed refund on success, updates payment state, and replays the same key without duplication; verified with `.venv/bin/python -m pytest`. |
+| UC1-T7 | Done | Refund policy allows captured duplicate payments and denies non-duplicate or already-refunded payments with stable rule IDs; verified with `.venv/bin/python -m pytest`. |
+| UC1-T8 | Done | Refund transition validation derives `T_REFUND_CREATE` and `T_PAYMENT_REFUNDED_AMOUNT` from pre/post state and detects missing deltas; verified with `.venv/bin/python -m pytest`. |
+| UC1-T9 | Done | Happy-path action controller loads fixture state, uses fixture fallback extraction, resolves duplicate payment, gates with policy, creates one refund, validates transition, and `scripts/run_demo.py --fixture support_refund_happy_001` returns `completed`; verified with `.venv/bin/python -m pytest` and `.venv/bin/python scripts/run_demo.py --fixture support_refund_happy_001`. |
+| UC1-T10 | Done | Ticket resolution tool only drafts a completed-refund customer response after observing a completed refund, and the happy-path controller resolves the ticket after refund validation; verified with `.venv/bin/python -m pytest` and `.venv/bin/python scripts/run_demo.py --fixture support_refund_happy_001`. |
+| UC1-T11 | Done | Happy-path controller emits audit receipts for refund creation/payment amount update and ticket resolution with intended transition, observed transition, policy decision, pre/post hashes, and success outcome; verified with `.venv/bin/python -m pytest` and `.venv/bin/python scripts/run_demo.py --fixture support_refund_happy_001`. |
+| UC1-T12 | Done | UC1 integration test asserts exactly one completed refund, resolved ticket, completed-refund response draft, final state match, and complete audit receipts; verified with `.venv/bin/python -m pytest` and `.venv/bin/python scripts/run_demo.py --fixture support_refund_happy_001`. |
 
 ### UC2 Tasks - Refund Timeout After Commit
 

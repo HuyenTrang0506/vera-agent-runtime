@@ -1,6 +1,10 @@
 """Workflow request and response contracts."""
 
-from pydantic import BaseModel
+from typing import Any
+
+from pydantic import BaseModel, Field
+
+from app.models.audit import AuditReceipt
 
 
 class WorkflowRequest(BaseModel):
@@ -17,5 +21,6 @@ class WorkflowRunResult(BaseModel):
     policy_decision: str | None
     final_state_match: bool
     audit_receipt_ids: list[str]
+    audit_receipts: list[AuditReceipt] = Field(default_factory=list)
+    final_state: dict[str, Any] | None = None
     message: str | None = None
-

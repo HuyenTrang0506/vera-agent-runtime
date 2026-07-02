@@ -92,6 +92,7 @@ class Ticket(BaseModel):
     status: TicketStatus
     priority: TicketPriority
     summary: str
+    response_draft: str | None = None
 
 
 class SupportState(BaseModel):
@@ -142,5 +143,6 @@ class SupportState(BaseModel):
 
 class SupportFixture(BaseModel):
     fixture_id: str
+    failure_mode: str = "success"
     state: SupportState
     expected_extraction: ExtractionResult
