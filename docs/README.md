@@ -22,6 +22,7 @@ docs/
 `-- research/
     +-- failure_patterns.md
     +-- framework_summary.md
+    +-- hackathon_plan.md
     +-- industrial_problem_brief.md
     `-- qwen_hackathon_topic_fit.md
 ```
@@ -35,6 +36,7 @@ docs/
 - `development/test_data_criteria.md` - criteria for benchmark/test data quality and assessment of the current datasets.
 - `research/failure_patterns.md` - evidence of common agent failures from repository issue analysis.
 - `research/qwen_hackathon_topic_fit.md` - hackathon track framing for SafeFlow/Qwen Autopilot.
+- `research/hackathon_plan.md` - original research workflow plan for selecting the hackathon direction.
 - `research/framework_summary.md` - ecosystem survey used for baseline selection.
 - `evaluation/state_transition_evaluation_metrics.md` - reusable evaluation framework, metrics, dataset design, baselines, protocol, stress tests, enterprise criteria, and novelty analysis.
 - `product/mvp_product_requirements.md` - MVP product requirements, delivery framework, sprint plan, use cases, acceptance criteria, backlog, and proposed technical architecture.

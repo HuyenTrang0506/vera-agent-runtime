@@ -1170,7 +1170,7 @@ Required environment variables:
 
 ```text
 QWEN_API_KEY=
-QWEN_MODEL=
+QWEN_MODEL=qwen3.7-plus
 SAFEFLOW_MODEL_MODE=qwen|fixture_fallback
 ```
 
