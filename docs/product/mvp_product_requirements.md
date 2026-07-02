@@ -309,6 +309,14 @@ Goal: complete a verified duplicate-charge refund once, update the ticket, draft
 | UC1-T11 | P0 | Emit audit receipts for refund and ticket update | `app/services/audit_service.py` | UC1-T9, UC1-T10 | Receipt has intended transition, observed transition, pre/post hashes |
 | UC1-T12 | P0 | Add UC1 integration test | `tests/integration/` | UC1-T1-UC1-T11 | Test asserts exactly one completed refund and resolved ticket |
 
+Completion status:
+
+| Task ID | Status | Completion Note |
+| --- | --- | --- |
+| UC1-T1 | Done | Fixture `support_refund_happy_001` exists and loads into typed `SupportFixture`; verified with `.venv/bin/python -m pytest`. |
+| UC1-T2 | Done | Support domain Pydantic models use explicit enums and validate fixture references; verified with `.venv/bin/python -m pytest`. |
+| UC1-T3 | Done | Fixture loader, runtime state deep copy, typed snapshot, and deterministic hash are implemented; verified with `.venv/bin/python -m pytest`. |
+
 ### UC2 Tasks - Refund Timeout After Commit
 
 Goal: prove duplicate side-effect prevention when a refund API times out after committing state.
