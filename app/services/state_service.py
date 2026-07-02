@@ -42,9 +42,9 @@ def runtime_state_from_fixture(fixture: SupportFixture) -> SupportState:
 
 
 def snapshot_state(state: SupportState | BaseModel | dict[str, Any]) -> dict[str, Any]:
-    if isinstance(state, BaseModel):
-        return state.model_dump(mode="json")
-    return json.loads(json.dumps(state))
+    if isinstance(state, dict):
+        return json.loads(json.dumps(state))
+    return state.model_dump(mode="json")
 
 
 def state_hash(state: SupportState | BaseModel | dict[str, Any]) -> str:

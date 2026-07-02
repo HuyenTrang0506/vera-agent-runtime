@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from app.models.state import SupportState
+from app.models.state import SupportState, TicketStatus
 from app.services.state_service import (
     load_support_fixture,
     runtime_state_from_fixture,
@@ -26,7 +26,7 @@ def test_runtime_state_from_fixture_is_deep_copy() -> None:
     fixture = load_support_fixture("support_refund_happy_001")
     runtime_state = runtime_state_from_fixture(fixture)
 
-    runtime_state.tickets["tkt_001"].status = "resolved"
+    runtime_state.tickets["tkt_001"].status = TicketStatus.RESOLVED
 
     assert fixture.state.tickets["tkt_001"].status == "new"
     assert runtime_state.tickets["tkt_001"].status == "resolved"

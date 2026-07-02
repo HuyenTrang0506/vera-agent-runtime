@@ -1,6 +1,6 @@
 PYTHON ?= python3.11
 
-.PHONY: setup test lint demo eval ui check-setup audit-data generate-data docker-build docker-api docker-ui docker-eval
+.PHONY: setup test lint typecheck demo eval ui check-setup audit-data generate-data docker-build docker-api docker-ui docker-eval
 
 setup:
 	$(PYTHON) -m venv .venv
@@ -12,6 +12,9 @@ test:
 
 lint:
 	ruff check app scripts tests ui
+
+typecheck:
+	.venv/bin/python -m pyright
 
 demo:
 	python scripts/run_demo.py --fixture support_refund_happy_001

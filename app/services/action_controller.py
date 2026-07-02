@@ -14,9 +14,9 @@ from app.domains.support.tools import (
     update_ticket_to_mismatch_escalation,
 )
 from app.models.approvals import ApprovalRecord
-from app.models.enums import ApprovalStatus, PolicyDecision, WorkflowStatus
+from app.models.enums import PolicyDecision, WorkflowStatus
 from app.models.workflow import WorkflowRunResult
-from app.services.approval_service import create_approval, is_approved, is_rejected
+from app.services.approval_service import create_approval, is_rejected
 from app.services.audit_service import build_receipt
 from app.services.idempotency_service import refund_idempotency_key
 from app.services.policy_service import evaluate_refund_policy
