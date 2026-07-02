@@ -1,0 +1,85 @@
+{
+  "approval_script": null,
+  "complexity_flags": [
+    "already_refunded"
+  ],
+  "expected_extraction": {
+    "confidence": 0.94,
+    "desired_transition": {
+      "from_state": "duplicate captured payment exists and no refund exists",
+      "to_state": "exactly one completed refund exists for duplicate payment",
+      "transition_id": "T_REFUND_CREATE"
+    },
+    "domain": "customer_support",
+    "entities": {
+      "amount": 199.0,
+      "customer_email": "customer091@example.com",
+      "order_id": "ord_gen_091",
+      "payment_id": null
+    },
+    "intent": "request_refund_for_duplicate_charge",
+    "missing_information": [],
+    "risk_flags": [
+      "financial_action"
+    ]
+  },
+  "failure_mode": "success",
+  "fixture_id": "support_refund_already_refunded_091",
+  "state": {
+    "customers": {
+      "cus_gen_091": {
+        "customer_id": "cus_gen_091",
+        "email": "customer091@example.com",
+        "risk_flags": [],
+        "tier": "standard"
+      }
+    },
+    "orders": {
+      "ord_gen_091": {
+        "currency": "USD",
+        "customer_id": "cus_gen_091",
+        "order_id": "ord_gen_091",
+        "status": "paid",
+        "total_amount": 199.0
+      }
+    },
+    "payments": {
+      "pay_gen_dup_091": {
+        "amount": 199.0,
+        "duplicate_of": "pay_gen_original_091",
+        "order_id": "ord_gen_091",
+        "payment_id": "pay_gen_dup_091",
+        "refunded_amount": 199.0,
+        "status": "refunded"
+      },
+      "pay_gen_original_091": {
+        "amount": 199.0,
+        "duplicate_of": null,
+        "order_id": "ord_gen_091",
+        "payment_id": "pay_gen_original_091",
+        "refunded_amount": 0.0,
+        "status": "captured"
+      }
+    },
+    "refunds": {
+      "ref_gen_existing_091": {
+        "amount": 199.0,
+        "approval_id": null,
+        "idempotency_key": "existing_refund_091",
+        "payment_id": "pay_gen_dup_091",
+        "refund_id": "ref_gen_existing_091",
+        "status": "completed"
+      }
+    },
+    "tickets": {
+      "tkt_gen_091": {
+        "customer_id": "cus_gen_091",
+        "order_id": "ord_gen_091",
+        "priority": "normal",
+        "status": "new",
+        "summary": "Customer reports possible duplicate charge.",
+        "ticket_id": "tkt_gen_091"
+      }
+    }
+  }
+}

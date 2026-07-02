@@ -1,0 +1,29 @@
+create_refund:
+  description: "Create a refund for a captured duplicate payment."
+  input_schema:
+    payment_id: string
+    amount: number
+    idempotency_key: string
+    approval_id: string|null
+  preconditions:
+    - payment_exists
+    - payment_is_captured
+    - payment_is_duplicate
+    - refund_not_already_created
+    - approval_present_if_high_value
+  transition_effects:
+    - T_REFUND_CREATE
+    - T_PAYMENT_REFUNDED_AMOUNT
+  side_effects:
+    - financial_refund
+  reversibility: irreversible
+  risk_level: high
+  idempotency_required: true
+  approval_required_when:
+    - refund_amount_gte_500
+  failure_modes:
+    - success
+    - timeout_before_commit
+    - timeout_after_commit
+    - success_but_state_mismatch
+

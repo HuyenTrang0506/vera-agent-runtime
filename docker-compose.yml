@@ -1,0 +1,31 @@
+services:
+  api:
+    build: .
+    command: uvicorn app.main:app --host ${SAFEFLOW_API_HOST:-0.0.0.0} --port ${SAFEFLOW_API_PORT:-8000}
+    env_file:
+      - .env
+    ports:
+      - "${SAFEFLOW_API_PORT:-8000}:${SAFEFLOW_API_PORT:-8000}"
+    volumes:
+      - ./data/results:/app/data/results
+
+  ui:
+    image: node:20-alpine
+    working_dir: /app/ui
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0 --port ${SAFEFLOW_UI_PORT:-5173}"
+    environment:
+      VITE_API_BASE_URL: "http://localhost:${SAFEFLOW_API_PORT:-8000}"
+    ports:
+      - "${SAFEFLOW_UI_PORT:-5173}:${SAFEFLOW_UI_PORT:-5173}"
+    volumes:
+      - ./ui:/app/ui
+    depends_on:
+      - api
+
+  eval:
+    build: .
+    command: python scripts/run_eval.py --benchmark ${SAFEFLOW_BENCHMARK_PATH:-data/benchmark/support_demo.jsonl}
+    env_file:
+      - .env
+    volumes:
+      - ./data/results:/app/data/results

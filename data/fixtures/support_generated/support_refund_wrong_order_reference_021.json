@@ -1,0 +1,75 @@
+{
+  "approval_script": null,
+  "complexity_flags": [
+    "wrong_order_reference"
+  ],
+  "expected_extraction": {
+    "confidence": 0.94,
+    "desired_transition": {
+      "from_state": "duplicate captured payment exists and no refund exists",
+      "to_state": "exactly one completed refund exists for duplicate payment",
+      "transition_id": "T_REFUND_CREATE"
+    },
+    "domain": "customer_support",
+    "entities": {
+      "amount": 89.0,
+      "customer_email": "customer021@example.com",
+      "order_id": "ord_gen_wrong_021",
+      "payment_id": null
+    },
+    "intent": "request_refund_for_duplicate_charge",
+    "missing_information": [],
+    "risk_flags": [
+      "financial_action"
+    ]
+  },
+  "failure_mode": "success",
+  "fixture_id": "support_refund_wrong_order_reference_021",
+  "state": {
+    "customers": {
+      "cus_gen_021": {
+        "customer_id": "cus_gen_021",
+        "email": "customer021@example.com",
+        "risk_flags": [],
+        "tier": "standard"
+      }
+    },
+    "orders": {
+      "ord_gen_021": {
+        "currency": "USD",
+        "customer_id": "cus_gen_021",
+        "order_id": "ord_gen_021",
+        "status": "paid",
+        "total_amount": 89.0
+      },
+      "ord_gen_wrong_021": {
+        "currency": "USD",
+        "customer_id": "cus_gen_021",
+        "order_id": "ord_gen_wrong_021",
+        "status": "paid",
+        "total_amount": 39.0
+      }
+    },
+    "payments": {
+      "pay_gen_original_021": {
+        "amount": 89.0,
+        "duplicate_of": null,
+        "order_id": "ord_gen_021",
+        "payment_id": "pay_gen_original_021",
+        "refunded_amount": 0.0,
+        "status": "captured"
+      }
+    },
+    "refunds": {},
+    "tickets": {
+      "tkt_gen_021": {
+        "customer_id": "cus_gen_021",
+        "order_id": "ord_gen_021",
+        "priority": "normal",
+        "status": "new",
+        "summary": "Customer reports possible duplicate charge.",
+        "ticket_id": "tkt_gen_021"
+      }
+    }
+  }
+}
