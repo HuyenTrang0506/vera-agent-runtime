@@ -339,6 +339,17 @@ Goal: prove duplicate side-effect prevention when a refund API times out after c
 | UC2-T5 | P0 | Emit recovered-timeout audit receipt | `app/services/audit_service.py` | UC2-T3 | Receipt records timeout, recheck, and recovered outcome |
 | UC2-T6 | P0 | Add UC2 integration test | `tests/integration/` | UC2-T1-UC2-T5 | Refund count remains 1; workflow status is `completed_with_recovered_timeout` |
 
+Completion status:
+
+| Task ID | Status | Completion Note |
+| --- | --- | --- |
+| UC2-T1 | Done | Canonical fixture `support_refund_timeout_after_commit_001` and benchmark task exist with `failure_mode=timeout_after_commit`; verified with `.venv/bin/python scripts/audit_test_data.py --benchmark data/benchmark/support_demo.jsonl`. |
+| UC2-T2 | Done | `create_refund` supports `timeout_after_commit` by committing one completed refund and returning timeout error; verified with `.venv/bin/python -m pytest`. |
+| UC2-T3 | Done | Controller rechecks post-commit state before retry and detects the committed refund; verified with `.venv/bin/python scripts/run_demo.py --fixture support_refund_timeout_after_commit_001`. |
+| UC2-T4 | Done | Refund idempotency replay prevents duplicate refunds for the same payment, amount, and key; verified with `.venv/bin/python -m pytest`. |
+| UC2-T5 | Done | Recovered-timeout audit receipt records observed transitions, pre/post state hashes, and `recovered` outcome; verified with `.venv/bin/python scripts/run_demo.py --fixture support_refund_timeout_after_commit_001`. |
+| UC2-T6 | Done | UC2 integration test asserts one completed refund and `completed_with_recovered_timeout`; verified with `.venv/bin/python -m pytest`. |
+
 ### UC3 Tasks - High-Value Refund Approval Rejection
 
 Goal: pause high-value refund before execution and prove rejection blocks the consequential action.
@@ -353,6 +364,18 @@ Goal: pause high-value refund before execution and prove rejection blocks the co
 | UC3-T6 | P0 | Implement rejection path: no refund, ticket to manual review, audit | `app/services/action_controller.py`, `app/domains/support/tools.py`, `app/services/audit_service.py` | UC3-T4, UC3-T5 | Rejected approval never calls `create_refund` |
 | UC3-T7 | P0 | Add UC3 integration test | `tests/integration/` | UC3-T1-UC3-T6 | Refund count is 0; ticket status is `pending_manual_review` |
 
+Completion status:
+
+| Task ID | Status | Completion Note |
+| --- | --- | --- |
+| UC3-T1 | Done | Canonical high-value rejection fixture `support_refund_high_value_reject_001` exists with duplicate payment amount `750.00`; verified with `.venv/bin/python -m pytest`. |
+| UC3-T2 | Done | Refund policy returns `approval_required` for refunds at or above the configured threshold; verified with `.venv/bin/python -m pytest`. |
+| UC3-T3 | Done | Approval models and in-memory approval lifecycle support pending, approved, rejected, and expired records; verified with `.venv/bin/python -m pytest`. |
+| UC3-T4 | Done | Controller pauses high-value refunds in `approval_pending` before execution; verified with `.venv/bin/python scripts/run_demo.py --fixture support_refund_high_value_reject_001`. |
+| UC3-T5 | Done | Approve/reject endpoints record manager decisions through approval service and return stored approval records; verified with `.venv/bin/python -m pytest tests/integration/test_approvals_api.py`. |
+| UC3-T6 | Done | Rejected approval path creates no refund, moves ticket to manual review, and emits blocked audit receipt; verified with `.venv/bin/python -m pytest`. |
+| UC3-T7 | Done | UC3 integration tests cover approval pending, rejection safe stop, and pending approval not executing refunds; verified with `.venv/bin/python -m pytest`. |
+
 ### UC4 Tasks - No Duplicate Charge
 
 Goal: deny refund safely when no duplicate captured payment exists.
@@ -364,6 +387,16 @@ Goal: deny refund safely when no duplicate captured payment exists.
 | UC4-T3 | P0 | Enforce `P_REFUND_DUPLICATE_ONLY` deny path | `app/services/policy_service.py`, `app/services/action_controller.py` | UC4-T2 | `create_refund` is not called |
 | UC4-T4 | P0 | Update ticket/customer response for denied refund | `app/domains/support/tools.py` | UC4-T3 | Response does not promise refund |
 | UC4-T5 | P0 | Add UC4 integration test | `tests/integration/` | UC4-T1-UC4-T4 | Workflow status is `denied`; refund count is 0 |
+
+Completion status:
+
+| Task ID | Status | Completion Note |
+| --- | --- | --- |
+| UC4-T1 | Done | Canonical no-duplicate fixture `support_refund_no_duplicate_001` exists with only one captured payment; verified with `.venv/bin/python scripts/audit_test_data.py --benchmark data/benchmark/support_demo.jsonl`. |
+| UC4-T2 | Done | Duplicate-payment detector returns no duplicate payment for no-duplicate fixture; verified with `.venv/bin/python -m pytest`. |
+| UC4-T3 | Done | Controller enforces deny path and does not create refunds when duplicate payment is absent; verified with `.venv/bin/python scripts/run_demo.py --fixture support_refund_no_duplicate_001`. |
+| UC4-T4 | Done | Denied ticket response avoids promising a completed refund and moves ticket to customer follow-up; verified with `.venv/bin/python -m pytest`. |
+| UC4-T5 | Done | UC4 integration test asserts `denied`, zero refunds, pending customer follow-up, and blocked audit receipt; verified with `.venv/bin/python -m pytest`. |
 
 ### UC5 Tasks - Tool Behavior Mismatch
 
@@ -377,6 +410,17 @@ Goal: detect a tool that reports success but fails to produce the intended state
 | UC5-T4 | P0 | Implement safe stop on mismatch | `app/services/action_controller.py` | UC5-T3 | Workflow status is `escalated_state_mismatch` |
 | UC5-T5 | P0 | Emit mismatch audit receipt with expected and observed delta | `app/services/audit_service.py` | UC5-T4 | Receipt contains both deltas |
 | UC5-T6 | P0 | Add UC5 integration test | `tests/integration/` | UC5-T1-UC5-T5 | No further consequential action after mismatch |
+
+Completion status:
+
+| Task ID | Status | Completion Note |
+| --- | --- | --- |
+| UC5-T1 | Done | Canonical mismatch fixture `support_tool_mismatch_001` exists with `failure_mode=success_but_state_mismatch`; verified with `.venv/bin/python scripts/audit_test_data.py --benchmark data/benchmark/support_demo.jsonl`. |
+| UC5-T2 | Done | `create_refund` supports `success_but_state_mismatch` by returning success without valid completed refund/payment transition; verified with `.venv/bin/python -m pytest`. |
+| UC5-T3 | Done | Transition validator detects missing observed refund/payment transitions from pre/post state; verified with `.venv/bin/python -m pytest`. |
+| UC5-T4 | Done | Controller safe-stops in `escalated_state_mismatch` and does not resolve the ticket after mismatch; verified with `.venv/bin/python scripts/run_demo.py --fixture support_tool_mismatch_001`. |
+| UC5-T5 | Done | Mismatch response includes audit receipt plus expected and observed delta details; verified with `.venv/bin/python -m pytest`. |
+| UC5-T6 | Done | UC5 integration test asserts mismatch escalation, no further consequential ticket resolution, and escalated audit outcome; verified with `.venv/bin/python -m pytest`. |
 
 ### UC6 Tasks - Operator Audit Review
 

@@ -16,7 +16,7 @@ from app.domains.support.tools import (
 from app.models.approvals import ApprovalRecord
 from app.models.enums import PolicyDecision, WorkflowStatus
 from app.models.workflow import WorkflowRunResult
-from app.services.approval_service import create_approval, is_rejected
+from app.services.approval_service import create_approval, is_approved, is_rejected
 from app.services.audit_service import build_receipt
 from app.services.idempotency_service import refund_idempotency_key
 from app.services.policy_service import evaluate_refund_policy
@@ -161,7 +161,19 @@ def run_support_workflow(
                     final_state=snapshot_state(state),
                     message="High-value refund rejected by manager. Ticket moved to manual review.",
                 )
-            # approved → fall through to execution below with approval_id
+            if not is_approved(approval_record):
+                return WorkflowRunResult(
+                    workflow_id=workflow_id,
+                    status=WorkflowStatus.APPROVAL_PENDING,
+                    desired_transition_id=extraction.desired_transition.transition_id,
+                    policy_decision=policy.decision,
+                    final_state_match=False,
+                    audit_receipt_ids=[],
+                    approval_id=approval_record.approval_id,
+                    final_state=snapshot_state(state),
+                    message="High-value refund is still pending approval.",
+                )
+            # approved -> fall through to execution below with approval_id
         else:
             # No decision yet — create approval and pause
             approval = create_approval(

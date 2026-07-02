@@ -104,6 +104,26 @@ def test_uc3_high_value_refund_rejected_blocks_refund_and_moves_ticket_to_manual
     assert result.audit_receipts[0].outcome == "blocked"
 
 
+def test_uc3_pending_approval_record_does_not_execute_refund() -> None:
+    pending_record = ApprovalRecord(
+        approval_id="apr_pending_001",
+        workflow_id="wf_test_001",
+        status=ApprovalStatus.PENDING,
+        requested_amount=750.0,
+        policy_rule_id="P_HIGH_VALUE_APPROVAL",
+        decided_by=None,
+    )
+    result = run_support_workflow(
+        fixture_id="support_refund_high_value_reject_001",
+        approval_record=pending_record,
+    )
+
+    assert result.status == "approval_pending"
+    assert result.approval_id == "apr_pending_001"
+    assert result.final_state is not None
+    assert len(result.final_state["refunds"]) == 0
+
+
 # UC4: no duplicate charge denial
 
 def test_uc4_no_duplicate_payment_denies_refund_without_calling_create_refund() -> None:
