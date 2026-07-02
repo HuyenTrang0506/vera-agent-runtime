@@ -461,6 +461,7 @@ Completion status:
 | EVAL-T1 | Done | `support_demo.jsonl` contains at least 20 P0 support cases with canonical UC1-UC5 fixtures; verified with `.venv/bin/python scripts/audit_test_data.py --benchmark data/benchmark/support_demo.jsonl`. |
 | EVAL-T2 | Done | P0 metrics compute business success, final state match, desired transition match, duplicate refunds, approval recall, rejection compliance, and audit completeness from structured workflow results; verified with `.venv/bin/python -m pytest tests/unit/test_eval_metrics.py`. |
 | EVAL-T3 | Done | Evaluation runner and CLI output structured metrics JSON for the benchmark; verified with `.venv/bin/python scripts/run_eval.py --benchmark data/benchmark/support_demo.jsonl --repeated-runs 2`. |
+| EVAL-T4 | Done | Description/schema-only baseline runs the same benchmark using fixture extraction and mock tools without policy, transition validation, recovery, or audit controls; verified with `.venv/bin/python -m pytest tests/eval/test_baselines.py` and `.venv/bin/python scripts/run_eval.py --benchmark data/benchmark/support_demo.jsonl --repeated-runs 1 --include-baseline`. |
 | EVAL-T5 | Done | Evaluation runner defaults to 5 repeated runs per task and reports repeated-run summary with total runs and task success counts; verified with `.venv/bin/python scripts/run_eval.py --benchmark data/benchmark/support_demo.jsonl` and `.venv/bin/python -m pytest tests/eval/test_runner_placeholder.py`. |
 
 ## 7. Domain Model

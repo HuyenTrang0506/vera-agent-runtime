@@ -11,13 +11,20 @@ if str(ROOT) not in sys.path:
 
 
 def main() -> None:
+    from app.eval.baselines import run_description_only_baseline
     from app.eval.runner import run_benchmark
 
     parser = ArgumentParser()
     parser.add_argument("--benchmark", required=True)
     parser.add_argument("--repeated-runs", type=int, default=None)
+    parser.add_argument("--include-baseline", action="store_true")
     args = parser.parse_args()
     result = run_benchmark(args.benchmark, repeated_runs=args.repeated_runs)
+    if args.include_baseline:
+        result["baseline"] = run_description_only_baseline(
+            args.benchmark,
+            repeated_runs=args.repeated_runs or 1,
+        )
     print(json.dumps(result, indent=2, sort_keys=True))
 
 
