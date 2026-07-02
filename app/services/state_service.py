@@ -9,6 +9,7 @@ from pydantic import BaseModel
 
 from app.core.config import settings
 from app.models.state import SupportFixture, SupportState
+from app.models.workflow import WorkflowRunResult
 
 
 def load_fixture(path: str | Path) -> dict[str, Any]:
@@ -52,3 +53,25 @@ def state_hash(state: SupportState | BaseModel | dict[str, Any]) -> str:
         "utf-8"
     )
     return sha256(encoded).hexdigest()
+
+
+def workflow_result_path(workflow_id: str) -> Path:
+    return Path(settings.results_dir) / f"{workflow_id}.json"
+
+
+def save_workflow_result(result: WorkflowRunResult) -> Path:
+    results_dir = Path(settings.results_dir)
+    results_dir.mkdir(parents=True, exist_ok=True)
+    path = workflow_result_path(result.workflow_id)
+    path.write_text(
+        json.dumps(result.model_dump(mode="json"), indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+    return path
+
+
+def load_workflow_result(workflow_id: str) -> WorkflowRunResult | None:
+    path = workflow_result_path(workflow_id)
+    if not path.exists():
+        return None
+    return WorkflowRunResult.model_validate_json(path.read_text(encoding="utf-8"))

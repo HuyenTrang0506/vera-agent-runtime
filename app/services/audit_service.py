@@ -2,6 +2,7 @@
 
 from app.core.ids import new_id
 from app.models.audit import AuditReceipt
+from app.models.workflow import TimelineEvent
 
 
 def build_receipt(
@@ -27,3 +28,16 @@ def build_receipt(
         outcome=outcome,
     )
 
+
+def timeline_event_from_receipt(receipt: AuditReceipt) -> TimelineEvent:
+    return TimelineEvent(
+        event_id=new_id("evt_"),
+        workflow_id=receipt.workflow_id,
+        event_type=receipt.outcome,
+        summary=(
+            f"{receipt.action_id}: {receipt.intended_transition} -> "
+            f"{receipt.observed_transition}"
+        ),
+        receipt_id=receipt.receipt_id,
+        state_hash=receipt.post_state_hash,
+    )

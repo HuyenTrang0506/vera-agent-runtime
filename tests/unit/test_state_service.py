@@ -2,9 +2,12 @@ import pytest
 from pydantic import ValidationError
 
 from app.models.state import SupportState, TicketStatus
+from app.models.workflow import WorkflowRunResult
 from app.services.state_service import (
+    load_workflow_result,
     load_support_fixture,
     runtime_state_from_fixture,
+    save_workflow_result,
     snapshot_state,
     state_hash,
 )
@@ -57,3 +60,22 @@ def test_support_state_rejects_missing_references() -> None:
                 },
             }
         )
+
+
+def test_save_and_load_workflow_result_snapshot() -> None:
+    result = WorkflowRunResult(
+        workflow_id="wf_test_snapshot",
+        status="completed",
+        desired_transition_id="T_REFUND_CREATE",
+        policy_decision="allow",
+        final_state_match=True,
+        audit_receipt_ids=[],
+    )
+
+    path = save_workflow_result(result)
+    loaded = load_workflow_result("wf_test_snapshot")
+
+    assert path.exists()
+    assert loaded == result
+    path.unlink()
+    assert load_workflow_result("wf_test_snapshot") is None

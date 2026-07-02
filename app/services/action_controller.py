@@ -17,7 +17,7 @@ from app.models.approvals import ApprovalRecord
 from app.models.enums import PolicyDecision, WorkflowStatus
 from app.models.workflow import WorkflowRunResult
 from app.services.approval_service import create_approval, is_approved, is_rejected
-from app.services.audit_service import build_receipt
+from app.services.audit_service import build_receipt, timeline_event_from_receipt
 from app.services.idempotency_service import refund_idempotency_key
 from app.services.policy_service import evaluate_refund_policy
 from app.services.qwen_service import extract_support_request
@@ -25,13 +25,14 @@ from app.services.recovery_service import should_recheck_state
 from app.services.state_service import (
     load_support_fixture,
     runtime_state_from_fixture,
+    save_workflow_result,
     snapshot_state,
     state_hash,
 )
 from app.services.transition_service import validate_refund_transition
 
 
-def run_support_workflow(
+def _run_support_workflow(
     fixture_id: str = "support_refund_happy_001",
     request_text: str | None = None,
     approval_record: ApprovalRecord | None = None,
@@ -355,3 +356,20 @@ def run_support_workflow(
             else f"{validation.reason} Ticket resolved and response drafted."
         ),
     )
+
+
+def run_support_workflow(
+    fixture_id: str = "support_refund_happy_001",
+    request_text: str | None = None,
+    approval_record: ApprovalRecord | None = None,
+) -> WorkflowRunResult:
+    result = _run_support_workflow(
+        fixture_id=fixture_id,
+        request_text=request_text,
+        approval_record=approval_record,
+    )
+    result.timeline_events = [
+        timeline_event_from_receipt(receipt) for receipt in result.audit_receipts
+    ]
+    save_workflow_result(result)
+    return result

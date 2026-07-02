@@ -14,6 +14,15 @@ class WorkflowRequest(BaseModel):
     operator_id: str = "op_demo"
 
 
+class TimelineEvent(BaseModel):
+    event_id: str
+    workflow_id: str
+    event_type: str
+    summary: str
+    receipt_id: str | None = None
+    state_hash: str | None = None
+
+
 class WorkflowRunResult(BaseModel):
     workflow_id: str
     status: str
@@ -22,6 +31,7 @@ class WorkflowRunResult(BaseModel):
     final_state_match: bool
     audit_receipt_ids: list[str]
     audit_receipts: list[AuditReceipt] = Field(default_factory=list)
+    timeline_events: list[TimelineEvent] = Field(default_factory=list)
     final_state: dict[str, Any] | None = None
     approval_id: str | None = None
     mismatch_detail: dict[str, Any] | None = None

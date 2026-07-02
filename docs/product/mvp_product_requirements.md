@@ -434,6 +434,14 @@ Goal: make the workflow timeline and audit evidence inspectable for demo and eva
 | UC6-T4 | P0 | Show timeline, state diff, audit receipt, and metrics in React/Vite | `ui/src/App.tsx` | UC1-T9, UC6-T2 | Demo UI shows inspectable evidence |
 | UC6-T5 | P0 | Add audit completeness test | `tests/unit/`, `tests/integration/` | UC6-T1-UC6-T4 | Consequential actions have complete receipts |
 
+Completion status:
+
+| Task ID | Status | Completion Note |
+| --- | --- | --- |
+| UC6-T1 | Done | Audit receipt schema is present and workflow timeline event schema validates audit-linked timeline evidence; verified with `.venv/bin/python -m pytest tests/unit/test_audit_service.py`. |
+| UC6-T2 | Done | Workflow result snapshots persist audit receipts, timeline events, and final state as JSON under `data/results/`; verified with `.venv/bin/python -m pytest tests/unit/test_state_service.py tests/integration/test_audit_api.py`. |
+| UC6-T3 | Done | `GET /audit/{workflow_id}` returns persisted audit receipts and `GET /workflows/{workflow_id}` returns persisted workflow snapshots; verified with `.venv/bin/python -m pytest tests/integration/test_audit_api.py`. |
+
 ### Evaluation And Baseline Tasks
 
 These tasks support all UCs and the research claim.
