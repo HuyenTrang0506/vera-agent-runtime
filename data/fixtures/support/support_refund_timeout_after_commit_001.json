@@ -1,0 +1,70 @@
+{
+  "fixture_id": "support_refund_timeout_after_commit_001",
+  "failure_mode": "timeout_after_commit",
+  "state": {
+    "customers": {
+      "cus_timeout_001": {
+        "customer_id": "cus_timeout_001",
+        "email": "timeout.customer@example.com",
+        "tier": "standard",
+        "risk_flags": []
+      }
+    },
+    "orders": {
+      "ord_timeout_001": {
+        "order_id": "ord_timeout_001",
+        "customer_id": "cus_timeout_001",
+        "status": "paid",
+        "total_amount": 120.0,
+        "currency": "USD"
+      }
+    },
+    "payments": {
+      "pay_timeout_original_001": {
+        "payment_id": "pay_timeout_original_001",
+        "order_id": "ord_timeout_001",
+        "status": "captured",
+        "amount": 120.0,
+        "duplicate_of": null,
+        "refunded_amount": 0.0
+      },
+      "pay_timeout_dup_001": {
+        "payment_id": "pay_timeout_dup_001",
+        "order_id": "ord_timeout_001",
+        "status": "captured",
+        "amount": 120.0,
+        "duplicate_of": "pay_timeout_original_001",
+        "refunded_amount": 0.0
+      }
+    },
+    "refunds": {},
+    "tickets": {
+      "tkt_timeout_001": {
+        "ticket_id": "tkt_timeout_001",
+        "customer_id": "cus_timeout_001",
+        "order_id": "ord_timeout_001",
+        "status": "new",
+        "priority": "normal",
+        "summary": "Customer reports duplicate charge; refund API will time out after commit."
+      }
+    }
+  },
+  "expected_extraction": {
+    "domain": "customer_support",
+    "intent": "request_refund_for_duplicate_charge",
+    "entities": {
+      "customer_email": "timeout.customer@example.com",
+      "order_id": "ord_timeout_001",
+      "payment_id": null,
+      "amount": null
+    },
+    "desired_transition": {
+      "transition_id": "T_REFUND_CREATE",
+      "from_state": "duplicate captured payment exists and no refund exists",
+      "to_state": "exactly one completed refund exists for duplicate payment"
+    },
+    "risk_flags": ["financial_action"],
+    "missing_information": [],
+    "confidence": 0.95
+  }
+}
