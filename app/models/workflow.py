@@ -23,4 +23,6 @@ class WorkflowRunResult(BaseModel):
     audit_receipt_ids: list[str]
     audit_receipts: list[AuditReceipt] = Field(default_factory=list)
     final_state: dict[str, Any] | None = None
+    approval_id: str | None = None
+    mismatch_detail: dict[str, Any] | None = None
     message: str | None = None

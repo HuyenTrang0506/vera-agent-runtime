@@ -122,7 +122,60 @@ def create_refund(
             error="timeout_after_commit",
         )
 
+    if failure_mode == "success_but_state_mismatch":
+        refund.status = RefundStatus.PENDING
+        payment.refunded_amount = 0.0
+        payment.status = PaymentStatus.CAPTURED
+        return CreateRefundResult(success=True, refund=refund)
+
     return CreateRefundResult(success=True, refund=refund)
+
+
+def update_ticket_to_manual_review(
+    state: SupportState,
+    ticket_id: str,
+    reason: str,
+) -> TicketUpdateResult:
+    ticket = lookup_ticket(state, ticket_id)
+    if ticket is None:
+        return TicketUpdateResult(success=False, error="ticket_not_found")
+    ticket.status = TicketStatus.PENDING_MANUAL_REVIEW
+    ticket.response_draft = (
+        f"Your request requires manual review. Reason: {reason} "
+        "A support manager will contact you shortly."
+    )
+    return TicketUpdateResult(success=True, ticket=ticket)
+
+
+def update_ticket_to_denied(
+    state: SupportState,
+    ticket_id: str,
+    reason: str,
+) -> TicketUpdateResult:
+    ticket = lookup_ticket(state, ticket_id)
+    if ticket is None:
+        return TicketUpdateResult(success=False, error="ticket_not_found")
+    ticket.status = TicketStatus.PENDING_CUSTOMER_FOLLOWUP
+    ticket.response_draft = (
+        f"We reviewed your request but could not process a refund at this time. "
+        f"Reason: {reason}"
+    )
+    return TicketUpdateResult(success=True, ticket=ticket)
+
+
+def update_ticket_to_mismatch_escalation(
+    state: SupportState,
+    ticket_id: str,
+) -> TicketUpdateResult:
+    ticket = lookup_ticket(state, ticket_id)
+    if ticket is None:
+        return TicketUpdateResult(success=False, error="ticket_not_found")
+    ticket.status = TicketStatus.ESCALATED_STATE_MISMATCH
+    ticket.response_draft = (
+        "We encountered an unexpected issue processing your request. "
+        "Your case has been escalated for manual review."
+    )
+    return TicketUpdateResult(success=True, ticket=ticket)
 
 
 def resolve_ticket_with_completed_refund(

@@ -1,6 +1,11 @@
 """Hardcoded P0 policy predicates."""
 
-from app.domains.support.policies import P_NO_ALREADY_REFUNDED, P_REFUND_DUPLICATE_ONLY
+from app.core.config import settings
+from app.domains.support.policies import (
+    P_HIGH_VALUE_APPROVAL,
+    P_NO_ALREADY_REFUNDED,
+    P_REFUND_DUPLICATE_ONLY,
+)
 from app.models.enums import PolicyDecision
 from app.models.policies import PolicyResult
 from app.models.state import PaymentStatus, SupportState
@@ -15,7 +20,18 @@ def deny(reason: str, rule_ids: list[str] | None = None) -> PolicyResult:
     return PolicyResult(decision=PolicyDecision.DENY, rule_ids=rule_ids or [], reason=reason)
 
 
-def evaluate_refund_policy(state: SupportState, payment_id: str, amount: float) -> PolicyResult:
+def approval_required(reason: str, rule_ids: list[str] | None = None) -> PolicyResult:
+    return PolicyResult(
+        decision=PolicyDecision.APPROVAL_REQUIRED, rule_ids=rule_ids or [], reason=reason
+    )
+
+
+def evaluate_refund_policy(
+    state: SupportState,
+    payment_id: str,
+    amount: float,
+    threshold: float | None = None,
+) -> PolicyResult:
     payment = state.payments.get(payment_id)
     if payment is not None and has_completed_refund_for_payment_amount(state, payment_id, amount):
         return deny(
@@ -31,6 +47,13 @@ def evaluate_refund_policy(state: SupportState, payment_id: str, amount: float) 
         return deny(
             "Refund denied because payment is not a captured duplicate charge.",
             [P_REFUND_DUPLICATE_ONLY],
+        )
+
+    limit = threshold if threshold is not None else settings.refund_approval_threshold
+    if amount >= limit:
+        return approval_required(
+            f"Refund of {amount:.2f} meets or exceeds approval threshold {limit:.2f}.",
+            [P_HIGH_VALUE_APPROVAL],
         )
 
     return allow(

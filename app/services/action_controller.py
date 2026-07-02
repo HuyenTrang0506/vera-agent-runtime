@@ -9,9 +9,14 @@ from app.domains.support.tools import (
     find_duplicate_payment_for_order,
     find_ticket_for_order,
     resolve_ticket_with_completed_refund,
+    update_ticket_to_denied,
+    update_ticket_to_manual_review,
+    update_ticket_to_mismatch_escalation,
 )
-from app.models.enums import WorkflowStatus
+from app.models.approvals import ApprovalRecord
+from app.models.enums import ApprovalStatus, PolicyDecision, WorkflowStatus
 from app.models.workflow import WorkflowRunResult
+from app.services.approval_service import create_approval, is_approved, is_rejected
 from app.services.audit_service import build_receipt
 from app.services.idempotency_service import refund_idempotency_key
 from app.services.policy_service import evaluate_refund_policy
@@ -26,13 +31,10 @@ from app.services.state_service import (
 from app.services.transition_service import validate_refund_transition
 
 
-class ActionControllerNotImplemented(NotImplementedError):
-    """Raised until the P0 controller is implemented."""
-
-
 def run_support_workflow(
     fixture_id: str = "support_refund_happy_001",
     request_text: str | None = None,
+    approval_record: ApprovalRecord | None = None,
 ) -> WorkflowRunResult:
     fixture = load_support_fixture(fixture_id)
     state = runtime_state_from_fixture(fixture)
@@ -57,14 +59,35 @@ def run_support_workflow(
         )
 
     duplicate_payment = find_duplicate_payment_for_order(state, order_id)
+
+    # UC4: no duplicate → deny
     if duplicate_payment is None:
+        ticket = find_ticket_for_order(state, order_id)
+        if ticket is not None:
+            update_ticket_to_denied(
+                state,
+                ticket_id=ticket.ticket_id,
+                reason="No duplicate captured payment found for this order.",
+            )
+        deny_receipt = build_receipt(
+            workflow_id=workflow_id,
+            action_id="policy_check",
+            intended_transition="T_REFUND_CREATE",
+            observed_transition="none",
+            policy_decision=PolicyDecision.DENY,
+            pre_state_hash=state_hash(state),
+            post_state_hash=state_hash(state),
+            outcome="blocked",
+        )
         return WorkflowRunResult(
             workflow_id=workflow_id,
             status=WorkflowStatus.DENIED,
             desired_transition_id=extraction.desired_transition.transition_id,
-            policy_decision="deny",
+            policy_decision=PolicyDecision.DENY,
             final_state_match=False,
-            audit_receipt_ids=[],
+            audit_receipt_ids=[deny_receipt.receipt_id],
+            audit_receipts=[deny_receipt],
+            final_state=snapshot_state(state),
             message="No duplicate captured payment was found.",
         )
 
@@ -73,25 +96,116 @@ def run_support_workflow(
         payment_id=duplicate_payment.payment_id,
         amount=duplicate_payment.amount,
     )
-    if policy.decision != "allow":
+
+    # Deny path (not approval_required, just deny)
+    if policy.decision == PolicyDecision.DENY:
+        ticket = find_ticket_for_order(state, order_id)
+        if ticket is not None:
+            update_ticket_to_denied(
+                state,
+                ticket_id=ticket.ticket_id,
+                reason=policy.reason,
+            )
+        deny_receipt = build_receipt(
+            workflow_id=workflow_id,
+            action_id="policy_check",
+            intended_transition="T_REFUND_CREATE",
+            observed_transition="none",
+            policy_decision=policy.decision,
+            pre_state_hash=state_hash(state),
+            post_state_hash=state_hash(state),
+            outcome="blocked",
+        )
         return WorkflowRunResult(
             workflow_id=workflow_id,
             status=WorkflowStatus.DENIED,
             desired_transition_id=extraction.desired_transition.transition_id,
             policy_decision=policy.decision,
             final_state_match=False,
-            audit_receipt_ids=[],
+            audit_receipt_ids=[deny_receipt.receipt_id],
+            audit_receipts=[deny_receipt],
+            final_state=snapshot_state(state),
             message=policy.reason,
         )
 
+    # UC3: approval_required path
+    if policy.decision == PolicyDecision.APPROVAL_REQUIRED:
+        # If an approval_record was passed in (resume after decision), handle it
+        if approval_record is not None:
+            if is_rejected(approval_record):
+                ticket = find_ticket_for_order(state, order_id)
+                if ticket is not None:
+                    update_ticket_to_manual_review(
+                        state,
+                        ticket_id=ticket.ticket_id,
+                        reason="High-value refund approval was rejected.",
+                    )
+                rejection_receipt = build_receipt(
+                    workflow_id=workflow_id,
+                    action_id=approval_record.approval_id,
+                    intended_transition="T_REFUND_CREATE",
+                    observed_transition="T_APPROVAL_REJECTED",
+                    policy_decision=policy.decision,
+                    pre_state_hash=state_hash(state),
+                    post_state_hash=state_hash(state),
+                    outcome="blocked",
+                )
+                return WorkflowRunResult(
+                    workflow_id=workflow_id,
+                    status=WorkflowStatus.PENDING_MANUAL_REVIEW,
+                    desired_transition_id=extraction.desired_transition.transition_id,
+                    policy_decision=policy.decision,
+                    final_state_match=False,
+                    audit_receipt_ids=[rejection_receipt.receipt_id],
+                    audit_receipts=[rejection_receipt],
+                    final_state=snapshot_state(state),
+                    message="High-value refund rejected by manager. Ticket moved to manual review.",
+                )
+            # approved → fall through to execution below with approval_id
+        else:
+            # No decision yet — create approval and pause
+            approval = create_approval(
+                workflow_id=workflow_id,
+                requested_amount=duplicate_payment.amount,
+                policy_rule_id=policy.rule_ids[0] if policy.rule_ids else "P_HIGH_VALUE_APPROVAL",
+            )
+            approval_receipt = build_receipt(
+                workflow_id=workflow_id,
+                action_id=approval.approval_id,
+                intended_transition="T_APPROVAL_PENDING",
+                observed_transition="T_APPROVAL_PENDING",
+                policy_decision=policy.decision,
+                pre_state_hash=state_hash(state),
+                post_state_hash=state_hash(state),
+                outcome="blocked",
+            )
+            return WorkflowRunResult(
+                workflow_id=workflow_id,
+                status=WorkflowStatus.APPROVAL_PENDING,
+                desired_transition_id=extraction.desired_transition.transition_id,
+                policy_decision=policy.decision,
+                final_state_match=False,
+                audit_receipt_ids=[approval_receipt.receipt_id],
+                audit_receipts=[approval_receipt],
+                approval_id=approval.approval_id,
+                final_state=snapshot_state(state),
+                message=f"High-value refund of {duplicate_payment.amount:.2f} requires approval.",
+            )
+
+    # Execute refund (allow or approved)
+    approval_id = approval_record.approval_id if approval_record is not None else None
+
     pre_state = snapshot_state(state)
     pre_refund_hash = state_hash(pre_state)
-    idempotency_key = refund_idempotency_key(duplicate_payment.payment_id, duplicate_payment.amount)
+    idempotency_key = refund_idempotency_key(
+        duplicate_payment.payment_id, duplicate_payment.amount
+    )
     refund_result = create_refund(
         state,
         payment_id=duplicate_payment.payment_id,
         amount=duplicate_payment.amount,
         idempotency_key=idempotency_key,
+        approval_id=approval_id,
         failure_mode=fixture.failure_mode,
     )
     recovered_timeout = False
@@ -115,17 +229,39 @@ def run_support_workflow(
         payment_id=duplicate_payment.payment_id,
         amount=duplicate_payment.amount,
     )
-    if not validation.matches:
+
+    # UC5: state mismatch escalation
+    if not validation.matches and not recovered_timeout:
+        ticket = find_ticket_for_order(state, order_id)
+        if ticket is not None:
+            update_ticket_to_mismatch_escalation(state, ticket_id=ticket.ticket_id)
+        mismatch_receipt = build_receipt(
+            workflow_id=workflow_id,
+            action_id=refund_result.refund.refund_id if refund_result.refund else "create_refund",
+            intended_transition="T_REFUND_CREATE,T_PAYMENT_REFUNDED_AMOUNT",
+            observed_transition=",".join(validation.observed_transition_ids) or "none",
+            policy_decision=policy.decision,
+            pre_state_hash=pre_refund_hash,
+            post_state_hash=post_refund_hash,
+            outcome="escalated",
+        )
         return WorkflowRunResult(
             workflow_id=workflow_id,
-            status=WorkflowStatus.FAILED_SAFE,
+            status=WorkflowStatus.ESCALATED_STATE_MISMATCH,
             desired_transition_id=extraction.desired_transition.transition_id,
             policy_decision=policy.decision,
             final_state_match=False,
-            audit_receipt_ids=[],
+            audit_receipt_ids=[mismatch_receipt.receipt_id],
+            audit_receipts=[mismatch_receipt],
+            final_state=snapshot_state(state),
+            mismatch_detail={
+                "expected_delta": validation.expected_delta,
+                "observed_delta": validation.observed_delta,
+            },
             message=validation.reason,
         )
-    if recovered_timeout and refund_result.refund is None:
+
+    if not validation.matches and recovered_timeout:
         return WorkflowRunResult(
             workflow_id=workflow_id,
             status=WorkflowStatus.FAILED_SAFE,
