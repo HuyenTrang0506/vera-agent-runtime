@@ -1,0 +1,62 @@
+{
+  "fixture_id": "support_refund_no_duplicate_001",
+  "failure_mode": "success",
+  "state": {
+    "customers": {
+      "cus_nodup_001": {
+        "customer_id": "cus_nodup_001",
+        "email": "nodup.customer@example.com",
+        "tier": "standard",
+        "risk_flags": []
+      }
+    },
+    "orders": {
+      "ord_nodup_001": {
+        "order_id": "ord_nodup_001",
+        "customer_id": "cus_nodup_001",
+        "status": "paid",
+        "total_amount": 95.0,
+        "currency": "USD"
+      }
+    },
+    "payments": {
+      "pay_nodup_001": {
+        "payment_id": "pay_nodup_001",
+        "order_id": "ord_nodup_001",
+        "status": "captured",
+        "amount": 95.0,
+        "duplicate_of": null,
+        "refunded_amount": 0.0
+      }
+    },
+    "refunds": {},
+    "tickets": {
+      "tkt_nodup_001": {
+        "ticket_id": "tkt_nodup_001",
+        "customer_id": "cus_nodup_001",
+        "order_id": "ord_nodup_001",
+        "status": "new",
+        "priority": "normal",
+        "summary": "Customer claims duplicate charge but only one payment exists."
+      }
+    }
+  },
+  "expected_extraction": {
+    "domain": "customer_support",
+    "intent": "request_refund_for_duplicate_charge",
+    "entities": {
+      "customer_email": "nodup.customer@example.com",
+      "order_id": "ord_nodup_001",
+      "payment_id": null,
+      "amount": null
+    },
+    "desired_transition": {
+      "transition_id": "T_REFUND_CREATE",
+      "from_state": "duplicate captured payment exists and no refund exists",
+      "to_state": "exactly one completed refund exists for duplicate payment"
+    },
+    "risk_flags": ["financial_action"],
+    "missing_information": [],
+    "confidence": 0.88
+  }
+}
