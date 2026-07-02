@@ -454,6 +454,15 @@ These tasks support all UCs and the research claim.
 | EVAL-T4 | P0 | Implement description/schema-only Qwen baseline | `app/eval/baselines.py` | UC1 tools, EVAL-T1 | Baseline runs same benchmark |
 | EVAL-T5 | P0 | Run 5 repeated runs per task | `app/eval/runner.py` | EVAL-T3, EVAL-T4 | Report includes repeated-run summary |
 
+Completion status:
+
+| Task ID | Status | Completion Note |
+| --- | --- | --- |
+| EVAL-T1 | Done | `support_demo.jsonl` contains at least 20 P0 support cases with canonical UC1-UC5 fixtures; verified with `.venv/bin/python scripts/audit_test_data.py --benchmark data/benchmark/support_demo.jsonl`. |
+| EVAL-T2 | Done | P0 metrics compute business success, final state match, desired transition match, duplicate refunds, approval recall, rejection compliance, and audit completeness from structured workflow results; verified with `.venv/bin/python -m pytest tests/unit/test_eval_metrics.py`. |
+| EVAL-T3 | Done | Evaluation runner and CLI output structured metrics JSON for the benchmark; verified with `.venv/bin/python scripts/run_eval.py --benchmark data/benchmark/support_demo.jsonl --repeated-runs 2`. |
+| EVAL-T5 | Done | Evaluation runner defaults to 5 repeated runs per task and reports repeated-run summary with total runs and task success counts; verified with `.venv/bin/python scripts/run_eval.py --benchmark data/benchmark/support_demo.jsonl` and `.venv/bin/python -m pytest tests/eval/test_runner_placeholder.py`. |
+
 ## 7. Domain Model
 
 ### Entity Relationships

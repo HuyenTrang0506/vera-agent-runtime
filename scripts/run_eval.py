@@ -1,6 +1,7 @@
 """Run SafeFlow evaluation benchmark."""
 
 from argparse import ArgumentParser
+import json
 from pathlib import Path
 import sys
 
@@ -14,8 +15,10 @@ def main() -> None:
 
     parser = ArgumentParser()
     parser.add_argument("--benchmark", required=True)
+    parser.add_argument("--repeated-runs", type=int, default=None)
     args = parser.parse_args()
-    print(run_benchmark(args.benchmark))
+    result = run_benchmark(args.benchmark, repeated_runs=args.repeated_runs)
+    print(json.dumps(result, indent=2, sort_keys=True))
 
 
 if __name__ == "__main__":
