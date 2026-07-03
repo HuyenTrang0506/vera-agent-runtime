@@ -1,8 +1,41 @@
-import { Activity, CheckCircle2, FileText, Play, ShieldCheck } from "lucide-react";
+import {
+  Activity,
+  AlertTriangle,
+  CheckCircle2,
+  Clock3,
+  FileText,
+  GitCompare,
+  ListChecks,
+  Play,
+  RefreshCw,
+  ShieldCheck,
+  XCircle,
+} from "lucide-react";
 import { useMemo, useState } from "react";
 import "./styles.css";
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+
+type AuditReceipt = {
+  receipt_id: string;
+  workflow_id: string;
+  action_id: string;
+  intended_transition: string;
+  observed_transition: string;
+  policy_decision: string;
+  pre_state_hash: string;
+  post_state_hash: string;
+  outcome: string;
+};
+
+type TimelineEvent = {
+  event_id: string;
+  workflow_id: string;
+  event_type: string;
+  summary: string;
+  receipt_id: string | null;
+  state_hash: string | null;
+};
 
 type WorkflowResult = {
   workflow_id: string;
@@ -11,31 +44,79 @@ type WorkflowResult = {
   policy_decision: string | null;
   final_state_match: boolean;
   audit_receipt_ids: string[];
+  audit_receipts: AuditReceipt[];
+  timeline_events: TimelineEvent[];
+  final_state: Record<string, unknown> | null;
+  approval_id?: string | null;
+  mismatch_detail?: Record<string, unknown> | null;
   message?: string | null;
 };
 
+type ApprovalRecord = {
+  approval_id: string;
+  status: string;
+  decided_by?: string | null;
+  comment?: string | null;
+};
+
+const fixtures = [
+  "support_refund_happy_001",
+  "support_refund_timeout_after_commit_001",
+  "support_refund_high_value_reject_001",
+  "support_refund_no_duplicate_001",
+  "support_tool_mismatch_001",
+];
+
 const defaultRequest = "I was charged twice for order A102. Refund me now.";
+
+function formatStatus(value: string | null | undefined) {
+  return value ? value.split("_").join(" ") : "none";
+}
+
+function shortHash(value: string | null | undefined) {
+  return value ? value.slice(0, 10) : "none";
+}
+
+function statusIcon(status: string) {
+  if (status.includes("completed")) return <CheckCircle2 size={18} />;
+  if (status.includes("pending")) return <Clock3 size={18} />;
+  if (status.includes("denied") || status.includes("mismatch")) return <AlertTriangle size={18} />;
+  return <XCircle size={18} />;
+}
 
 function App() {
   const [requestText, setRequestText] = useState(defaultRequest);
-  const [fixtureId, setFixtureId] = useState("support_refund_happy_001");
+  const [fixtureId, setFixtureId] = useState(fixtures[0]);
   const [result, setResult] = useState<WorkflowResult | null>(null);
+  const [approval, setApproval] = useState<ApprovalRecord | null>(null);
   const [isRunning, setIsRunning] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const timeline = useMemo(
-    () => [
-      { label: "Extract intent", state: result ? "done" : "idle" },
-      { label: "Check policy", state: result ? "done" : "idle" },
-      { label: "Execute gated action", state: result ? "done" : "idle" },
-      { label: "Validate final state", state: result ? "done" : "idle" },
-      { label: "Write audit receipt", state: result ? "done" : "idle" },
-    ],
-    [result],
-  );
+  const metrics = useMemo(() => {
+    if (!result) return [];
+    return [
+      { label: "Final state", value: result.final_state_match ? "matched" : "not matched" },
+      { label: "Receipts", value: String(result.audit_receipts.length) },
+      { label: "Timeline", value: String(result.timeline_events.length) },
+      { label: "Transition", value: result.desired_transition_id ?? "none" },
+    ];
+  }, [result]);
+
+  const finalStatePreview = useMemo(() => {
+    if (!result?.final_state) return "";
+    return JSON.stringify(result.final_state, null, 2);
+  }, [result]);
+
+  const mismatchPreview = useMemo(() => {
+    if (!result?.mismatch_detail) return "";
+    return JSON.stringify(result.mismatch_detail, null, 2);
+  }, [result]);
 
   async function runWorkflow() {
     setIsRunning(true);
+    setError(null);
     setResult(null);
+    setApproval(null);
     try {
       const response = await fetch(`${apiBaseUrl}/workflows/run`, {
         method: "POST",
@@ -47,20 +128,32 @@ function App() {
           operator_id: "op_demo",
         }),
       });
+      if (!response.ok) throw new Error(`Workflow request failed with ${response.status}`);
       const payload = (await response.json()) as WorkflowResult;
       setResult(payload);
-    } catch {
-      setResult({
-        workflow_id: "wf_ui_error",
-        status: "failed_safe",
-        desired_transition_id: null,
-        policy_decision: null,
-        final_state_match: false,
-        audit_receipt_ids: [],
-        message: "Could not reach SafeFlow API.",
-      });
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not reach SafeFlow API.");
     } finally {
       setIsRunning(false);
+    }
+  }
+
+  async function decideApproval(decision: "approve" | "reject") {
+    if (!result?.approval_id) return;
+    setError(null);
+    try {
+      const response = await fetch(`${apiBaseUrl}/approvals/${result.approval_id}/${decision}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          decided_by: "manager_demo",
+          comment: decision === "approve" ? "Approved in demo console." : "Rejected in demo console.",
+        }),
+      });
+      if (!response.ok) throw new Error(`Approval request failed with ${response.status}`);
+      setApproval((await response.json()) as ApprovalRecord);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not record approval decision.");
     }
   }
 
@@ -71,83 +164,160 @@ function App() {
           <p className="eyebrow">Qwen Enterprise Autopilot</p>
           <h1>SafeFlow Operator Console</h1>
         </div>
-        <div className="status-pill">
+        <div className={`status-pill ${result?.status ?? "idle"}`}>
           <ShieldCheck size={18} />
-          P0 support workflow
+          {result ? formatStatus(result.status) : "ready"}
         </div>
       </section>
 
       <section className="workspace">
-        <div className="panel request-panel">
+        <section className="panel request-panel">
           <div className="panel-title">
             <FileText size={18} />
             Request
           </div>
           <label>
             Fixture
-            <input value={fixtureId} onChange={(event) => setFixtureId(event.target.value)} />
+            <select value={fixtureId} onChange={(event) => setFixtureId(event.target.value)}>
+              {fixtures.map((fixture) => (
+                <option key={fixture} value={fixture}>
+                  {fixture}
+                </option>
+              ))}
+            </select>
           </label>
           <label>
             Customer message
             <textarea value={requestText} onChange={(event) => setRequestText(event.target.value)} />
           </label>
-          <button onClick={runWorkflow} disabled={isRunning}>
-            <Play size={18} />
+          <button onClick={runWorkflow} disabled={isRunning} type="button">
+            {isRunning ? <RefreshCw className="spin" size={18} /> : <Play size={18} />}
             {isRunning ? "Running" : "Run SafeFlow"}
           </button>
-        </div>
+          {error && <div className="inline-error">{error}</div>}
+        </section>
 
-        <div className="panel timeline-panel">
-          <div className="panel-title">
-            <Activity size={18} />
-            Timeline
-          </div>
-          <div className="timeline">
-            {timeline.map((item) => (
-              <div className="timeline-row" key={item.label}>
-                <CheckCircle2 className={item.state === "done" ? "done-icon" : "idle-icon"} size={18} />
-                <span>{item.label}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="panel result-panel">
+        <section className="panel result-panel">
           <div className="panel-title">
             <ShieldCheck size={18} />
             Result
           </div>
           {result ? (
-            <dl>
-              <div>
-                <dt>Workflow</dt>
-                <dd>{result.workflow_id}</dd>
+            <>
+              <div className="result-head">
+                <div className={`result-icon ${result.status}`}>{statusIcon(result.status)}</div>
+                <div>
+                  <div className="workflow-id">{result.workflow_id}</div>
+                  <div className="result-status">{formatStatus(result.status)}</div>
+                </div>
               </div>
-              <div>
-                <dt>Status</dt>
-                <dd>{result.status}</dd>
+              <div className="metric-grid">
+                {metrics.map((metric) => (
+                  <div className="metric" key={metric.label}>
+                    <span>{metric.label}</span>
+                    <strong>{metric.value}</strong>
+                  </div>
+                ))}
               </div>
-              <div>
-                <dt>Transition</dt>
-                <dd>{result.desired_transition_id ?? "none"}</dd>
-              </div>
-              <div>
-                <dt>Policy</dt>
-                <dd>{result.policy_decision ?? "none"}</dd>
-              </div>
-              <div>
-                <dt>Final state</dt>
-                <dd>{result.final_state_match ? "matched" : "not matched"}</dd>
-              </div>
-            </dl>
+              {result.approval_id && result.status === "approval_pending" && (
+                <div className="approval-strip">
+                  <div>
+                    <span>Approval</span>
+                    <strong>{approval ? formatStatus(approval.status) : result.approval_id}</strong>
+                  </div>
+                  <div className="approval-actions">
+                    <button className="icon-button approve" onClick={() => decideApproval("approve")} type="button">
+                      <CheckCircle2 size={18} />
+                    </button>
+                    <button className="icon-button reject" onClick={() => decideApproval("reject")} type="button">
+                      <XCircle size={18} />
+                    </button>
+                  </div>
+                </div>
+              )}
+              {result.message && <p className="message">{result.message}</p>}
+            </>
           ) : (
-            <p className="muted">Run a fixture to inspect workflow state, policy, and audit output.</p>
+            <div className="empty-state">
+              <ListChecks size={28} />
+              <span>No workflow run selected</span>
+            </div>
           )}
-        </div>
+        </section>
+
+        <section className="panel timeline-panel">
+          <div className="panel-title">
+            <Activity size={18} />
+            Timeline
+          </div>
+          <div className="timeline">
+            {(result?.timeline_events ?? []).map((event) => (
+              <div className="timeline-row" key={event.event_id}>
+                <CheckCircle2 className="done-icon" size={18} />
+                <div>
+                  <strong>{formatStatus(event.event_type)}</strong>
+                  <span>{event.summary}</span>
+                  <code>{shortHash(event.state_hash)}</code>
+                </div>
+              </div>
+            ))}
+            {!result?.timeline_events.length && <p className="muted">No timeline events</p>}
+          </div>
+        </section>
+
+        <section className="panel audit-panel">
+          <div className="panel-title">
+            <GitCompare size={18} />
+            Audit Receipts
+          </div>
+          <div className="receipt-list">
+            {(result?.audit_receipts ?? []).map((receipt) => (
+              <article className="receipt" key={receipt.receipt_id}>
+                <header>
+                  <strong>{receipt.action_id}</strong>
+                  <span>{receipt.outcome}</span>
+                </header>
+                <dl>
+                  <div>
+                    <dt>Expected</dt>
+                    <dd>{receipt.intended_transition}</dd>
+                  </div>
+                  <div>
+                    <dt>Observed</dt>
+                    <dd>{receipt.observed_transition}</dd>
+                  </div>
+                  <div>
+                    <dt>Hashes</dt>
+                    <dd>
+                      {shortHash(receipt.pre_state_hash)} {"->"} {shortHash(receipt.post_state_hash)}
+                    </dd>
+                  </div>
+                </dl>
+              </article>
+            ))}
+            {!result?.audit_receipts.length && <p className="muted">No receipts</p>}
+          </div>
+        </section>
+
+        <section className="panel state-panel">
+          <div className="panel-title">
+            <GitCompare size={18} />
+            State
+          </div>
+          {mismatchPreview && (
+            <div className="state-block">
+              <div className="state-block-title">Mismatch</div>
+              <pre>{mismatchPreview}</pre>
+            </div>
+          )}
+          <div className="state-block">
+            <div className="state-block-title">Final State</div>
+            <pre>{finalStatePreview || "{}"}</pre>
+          </div>
+        </section>
       </section>
     </main>
   );
 }
 
 export default App;
-

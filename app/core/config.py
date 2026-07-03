@@ -15,6 +15,14 @@ class Settings:
     api_host: str = os.getenv("SAFEFLOW_API_HOST", "0.0.0.0")
     api_port: int = int(os.getenv("SAFEFLOW_API_PORT", "8000"))
     ui_port: int = int(os.getenv("SAFEFLOW_UI_PORT", "5173"))
+    cors_origins: tuple[str, ...] = tuple(
+        origin.strip()
+        for origin in os.getenv(
+            "SAFEFLOW_CORS_ORIGINS",
+            "http://localhost:5173,http://127.0.0.1:5173",
+        ).split(",")
+        if origin.strip()
+    )
     refund_approval_threshold: float = float(
         os.getenv("SAFEFLOW_REFUND_APPROVAL_THRESHOLD", "500")
     )

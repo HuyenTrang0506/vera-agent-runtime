@@ -441,6 +441,8 @@ Completion status:
 | UC6-T1 | Done | Audit receipt schema is present and workflow timeline event schema validates audit-linked timeline evidence; verified with `.venv/bin/python -m pytest tests/unit/test_audit_service.py`. |
 | UC6-T2 | Done | Workflow result snapshots persist audit receipts, timeline events, and final state as JSON under `data/results/`; verified with `.venv/bin/python -m pytest tests/unit/test_state_service.py tests/integration/test_audit_api.py`. |
 | UC6-T3 | Done | `GET /audit/{workflow_id}` returns persisted audit receipts and `GET /workflows/{workflow_id}` returns persisted workflow snapshots; verified with `.venv/bin/python -m pytest tests/integration/test_audit_api.py`. |
+| UC6-T4 | Done | React/Vite operator console shows fixture runs, status metrics, approval controls, timeline events, audit receipt hashes, mismatch detail, and final state evidence; verified with `npm --prefix ui run lint`, `npm --prefix ui run build`, and Playwright local smoke test against FastAPI/Vite. |
+| UC6-T5 | Done | Audit completeness coverage asserts receipt/timeline persistence and complete workflow evidence across unit/integration tests; verified with `.venv/bin/python -m pytest`. |
 
 ### Evaluation And Baseline Tasks
 
