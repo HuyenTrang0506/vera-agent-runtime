@@ -198,6 +198,35 @@ Rules:
 - CSS should use named classes and token-like variables before introducing CSS-in-JS.
 - Keep UI copy short and operational; do not explain product features inside the app.
 
+## 10a. File And Module Separation
+
+Use this directory structure under `ui/src/`:
+
+```text
+ui/src/
+  App.tsx               -- root component: state, API calls, layout shell only
+  main.tsx              -- Vite entrypoint
+  styles.css            -- global styles and design tokens
+  constants/
+    fixtures.ts         -- fixture IDs list and default request text
+  types/
+    index.ts            -- all TypeScript types for API payloads
+  utils/
+    format.ts           -- pure formatting helpers (formatStatus, shortHash, pct, statusIcon)
+  components/
+    WorkflowPane.tsx    -- workflow tab UI (request, result, timeline, audit, state panels)
+    BenchmarkPane.tsx   -- benchmark tab UI (run button, metrics grid, task table)
+```
+
+Rules:
+
+- Do not inline type definitions or constants inside `App.tsx`. Define them in `types/` and `constants/`.
+- Do not define formatting helpers inside component files. Put them in `utils/format.ts`.
+- Each top-level tab or major pane should be its own component file under `components/`.
+- `App.tsx` should contain only: state declarations, async API functions, tab switch logic, and the top-level layout shell.
+- Common sub-components (status pills, metric tiles, timeline rows) may remain inline until they are shared across two or more parent components, at which point extract them to `components/`.
+- Static configuration lists (fixture IDs, policy thresholds) belong in `constants/`, not in component bodies.
+
 ## 11. Responsive Rules
 
 - Desktop: use multi-pane grid with request/result/timeline above details.

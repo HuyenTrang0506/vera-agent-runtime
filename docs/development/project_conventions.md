@@ -308,7 +308,51 @@ Minimum tests:
 
 Tests must pass in fixture fallback mode without network access.
 
-## 12. Task Completion And Change Control
+## 12. Commit Convention And Local Hooks
+
+Commit messages should use Conventional Commits, even before automated commit linting is installed.
+
+Format:
+
+```text
+<type>(optional-scope): <short imperative summary>
+```
+
+Recommended types:
+
+| Type | Use For |
+| --- | --- |
+| `feat` | User-visible capability or P0 task implementation |
+| `fix` | Bug fix or safety regression fix |
+| `test` | Test-only changes |
+| `docs` | Documentation-only changes |
+| `refactor` | Behavior-preserving code structure changes |
+| `chore` | Tooling, setup, dependency, or maintenance changes |
+| `style` | Formatting-only changes |
+
+Examples:
+
+```text
+feat(ui): add operator audit review console
+fix(workflow): prevent refund retry after rejected approval
+test(eval): cover repeated-run metric summary
+docs(ui): add operator console design conventions
+chore(dev): add commitlint hook
+```
+
+Husky and commitlint are allowed but not required for P0 unless the repo adds a root JavaScript tooling package.
+
+If automated commit linting is added:
+
+- Put Husky, commitlint, and their config at the repository root, not under `ui/`, so all commits are checked consistently.
+- Use `@commitlint/config-conventional` unless there is a documented reason to customize it.
+- Keep hook behavior local and fast; do not run full `pytest` or browser tests from a commit-msg hook.
+- Use `commit-msg` only for message validation.
+- If adding pre-commit checks, keep them opt-in or lightweight until the team agrees they are worth the local friction.
+- Document install/setup commands in `docs/development/setup_decisions.md` and update `.env.example` only if new env vars are introduced.
+- Do not let hook tooling replace the required task-specific test commands listed below.
+
+## 13. Task Completion And Change Control
 
 Done tasks are protected.
 
@@ -338,7 +382,7 @@ Recommended test scope by task type:
 | Docs-only | link/path sanity check |
 | Data/benchmark | `python scripts/audit_test_data.py --benchmark <path>` |
 
-## 13. UI Rules
+## 14. UI Rules
 
 Use React + Vite for P0.
 
@@ -362,7 +406,7 @@ Frontend rules:
 - Do not put core safety logic in React. UI calls backend APIs and displays state.
 - Use fixed, responsive layout constraints so demo content does not jump.
 
-## 14. Agent Skills And MCP Rules
+## 15. Agent Skills And MCP Rules
 
 Current agent skill setup:
 
@@ -376,7 +420,7 @@ MCP policy:
 - Add MCP only when a task explicitly needs live external data/actions or browser/e2e automation beyond local tooling.
 - If adding MCP, document why it is needed, what data/actions it can access, required env vars/secrets, and fallback behavior when unavailable.
 
-## 15. Documentation Rules
+## 16. Documentation Rules
 
 When changing behavior, update the closest source of truth:
 
@@ -385,7 +429,7 @@ When changing behavior, update the closest source of truth:
 - Evaluation design: `docs/evaluation/state_transition_evaluation_metrics.md` if changing metric definitions.
 - Research framing: `docs/research/*` only if the research claim changes.
 
-## 16. Definition Of Ready
+## 17. Definition Of Ready
 
 A dev task is ready when it has:
 
@@ -396,7 +440,7 @@ A dev task is ready when it has:
 - forbidden predicates if consequential
 - owner/module
 
-## 17. Definition Of Done
+## 18. Definition Of Done
 
 A dev task is done when:
 
