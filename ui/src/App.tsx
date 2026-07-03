@@ -1,5 +1,5 @@
 import { BarChart2, ShieldCheck } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { BenchmarkPane } from "./components/BenchmarkPane";
 import { WorkflowPane } from "./components/WorkflowPane";
 import { DEFAULT_REQUEST_TEXT, FIXTURE_IDS } from "./constants/fixtures";
@@ -21,11 +21,20 @@ function App() {
   const [approval, setApproval] = useState<ApprovalRecord | null>(null);
   const [isRunning, setIsRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [includeBaseline, setIncludeBaseline] = useState(false);
 
   // eval state
   const [evalResult, setEvalResult] = useState<EvalResult | null>(null);
   const [isEvalRunning, setIsEvalRunning] = useState(false);
   const [evalError, setEvalError] = useState<string | null>(null);
+
+  // pre-populate benchmark with last run on mount
+  useEffect(() => {
+    fetch(`${API_BASE}/evaluation/latest`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d) setEvalResult(d as EvalResult); })
+      .catch(() => {});
+  }, []);
 
   async function runWorkflow() {
     setIsRunning(true);
@@ -41,6 +50,7 @@ function App() {
           request_text: requestText,
           fixture_id: fixtureId,
           operator_id: "op_demo",
+          include_baseline: includeBaseline,
         }),
       });
       if (!res.ok) throw new Error(`Workflow request failed with ${res.status}`);
@@ -133,10 +143,12 @@ function App() {
           approval={approval}
           isRunning={isRunning}
           error={error}
+          includeBaseline={includeBaseline}
           onRequestTextChange={setRequestText}
           onFixtureChange={setFixtureId}
           onRun={runWorkflow}
           onApprovalDecide={decideApproval}
+          onToggleBaseline={setIncludeBaseline}
         />
       )}
 

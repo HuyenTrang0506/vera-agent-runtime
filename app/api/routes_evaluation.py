@@ -88,6 +88,25 @@ def run_evaluation(request: EvalRunRequest | None = None) -> EvalRunResponse:
     )
 
 
+@router.get("/latest", response_model=EvalRunResponse | None)
+def get_latest_evaluation() -> EvalRunResponse | None:
+    if not _eval_store:
+        return None
+    run_id = max(_eval_store, key=lambda k: _eval_store[k].get("run_id", k))
+    stored = _eval_store[run_id]
+    return EvalRunResponse(
+        run_id=run_id,
+        status="completed",
+        benchmark_path=stored["benchmark_path"],
+        repeated_runs=stored["repeated_runs"],
+        pass_k=stored.get("pass_k"),
+        metrics=stored["metrics"],
+        repeated_run_summary=stored["repeated_run_summary"],
+        tasks=stored["tasks"],
+        comparison=stored.get("comparison"),
+    )
+
+
 @router.get("/{run_id}", response_model=EvalRunResponse)
 def get_evaluation(run_id: str) -> EvalRunResponse:
     stored = _eval_store.get(run_id)

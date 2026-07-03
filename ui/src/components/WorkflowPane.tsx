@@ -10,7 +10,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { useMemo } from "react";
-import { FIXTURE_IDS } from "../constants/fixtures";
+import { FIXTURE_DESCRIPTIONS, FIXTURE_IDS } from "../constants/fixtures";
 import { ApprovalRecord, WorkflowResult } from "../types";
 import { formatStatus, shortHash, statusIcon } from "../utils/format";
 
@@ -21,11 +21,154 @@ type Props = {
   approval: ApprovalRecord | null;
   isRunning: boolean;
   error: string | null;
+  includeBaseline: boolean;
   onRequestTextChange: (v: string) => void;
   onFixtureChange: (v: string) => void;
   onRun: () => void;
   onApprovalDecide: (decision: "approve" | "reject") => void;
+  onToggleBaseline: (v: boolean) => void;
 };
+
+// Plain-English narrative for each outcome status
+const STATUS_NARRATIVE: Record<string, string> = {
+  completed:
+    "VERA detected a duplicate charge, verified policy, created one refund with an idempotency key, and confirmed the state transition matched the declared effect.",
+  completed_with_recovered_timeout:
+    "The refund API timed out after committing. VERA rechecked actual business state, detected the committed refund, and stopped safely — zero duplicate refunds.",
+  approval_pending:
+    "Refund amount exceeds the high-value threshold. VERA gated the action and is waiting for a manager decision before executing.",
+  pending_manual_review:
+    "Manager rejected the approval. No refund was created. Ticket routed to manual review queue.",
+  denied:
+    "No duplicate payment found for this order. Policy denied the refund. Ticket routed to customer follow-up.",
+  escalated_state_mismatch:
+    "Tool returned success, but observed state delta did not match the declared transition effect. VERA escalated and halted all further consequential actions.",
+  failed_safe: "VERA could not verify the action outcome and stopped safely to avoid a side effect.",
+};
+
+function StateHighlight({ finalState }: { finalState: Record<string, unknown> | null }) {
+  if (!finalState) return <p className="muted">No state</p>;
+
+  const refunds = finalState.refunds as Record<string, Record<string, unknown>> | undefined;
+  const payments = finalState.payments as Record<string, Record<string, unknown>> | undefined;
+  const tickets = finalState.tickets as Record<string, Record<string, unknown>> | undefined;
+
+  const completedRefunds = refunds
+    ? Object.values(refunds).filter((r) => r.status === "completed")
+    : [];
+  const pendingRefunds = refunds
+    ? Object.values(refunds).filter((r) => r.status !== "completed")
+    : [];
+  const capturedPayments = payments
+    ? Object.values(payments).filter((p) => p.status === "captured")
+    : [];
+
+  const ticketEntry = tickets ? Object.values(tickets)[0] : undefined;
+
+  return (
+    <div className="state-highlight">
+      <div className="state-kpi-row">
+        <div className={`state-kpi ${completedRefunds.length === 1 ? "kpi-good" : completedRefunds.length > 1 ? "kpi-bad" : "kpi-neutral"}`}>
+          <span>Completed refunds</span>
+          <strong>{completedRefunds.length}</strong>
+        </div>
+        <div className={`state-kpi ${capturedPayments.length > 0 ? "kpi-warn" : "kpi-neutral"}`}>
+          <span>Captured (un-refunded)</span>
+          <strong>{capturedPayments.length}</strong>
+        </div>
+        {pendingRefunds.length > 0 && (
+          <div className="state-kpi kpi-warn">
+            <span>Pending refunds</span>
+            <strong>{pendingRefunds.length}</strong>
+          </div>
+        )}
+        {ticketEntry && (
+          <div className="state-kpi kpi-neutral">
+            <span>Ticket status</span>
+            <strong>{String(ticketEntry.status ?? "—")}</strong>
+          </div>
+        )}
+      </div>
+      <details className="state-raw-toggle">
+        <summary>Raw JSON</summary>
+        <pre>{JSON.stringify(finalState, null, 2)}</pre>
+      </details>
+    </div>
+  );
+}
+
+function BaselinePanel({ result }: { result: WorkflowResult }) {
+  const bl = result.baseline;
+  if (!bl) return null;
+
+  const veraRefunds = useMemo(() => {
+    const refunds = result.final_state?.refunds as
+      | Record<string, Record<string, unknown>>
+      | undefined;
+    return refunds
+      ? Object.values(refunds).filter((r) => r.status === "completed").length
+      : 0;
+  }, [result.final_state]);
+
+  const rows = [
+    {
+      label: "Outcome",
+      vera: formatStatus(result.status),
+      baseline: formatStatus(bl.status),
+      veraClass: result.status.includes("completed") ? "pass-val" : "warn-val",
+      baselineClass: bl.status.includes("completed") ? "pass-val" : "warn-val",
+    },
+    {
+      label: "Completed refunds",
+      vera: String(veraRefunds),
+      baseline: String(bl.completed_refunds),
+      veraClass: veraRefunds === 1 ? "pass-val" : veraRefunds > 1 ? "fail-val" : "",
+      baselineClass:
+        bl.completed_refunds === 1 ? "pass-val" : bl.completed_refunds > 1 ? "fail-val" : "",
+    },
+    {
+      label: "State matched",
+      vera: result.final_state_match ? "✓ yes" : "✗ no",
+      baseline: bl.final_state_match ? "✓ yes" : "✗ no",
+      veraClass: result.final_state_match ? "pass-val" : "fail-val",
+      baselineClass: bl.final_state_match ? "pass-val" : "fail-val",
+    },
+    {
+      label: "Audit receipts",
+      vera: String(result.audit_receipts.length),
+      baseline: String(bl.audit_receipts),
+      veraClass: result.audit_receipts.length > 0 ? "pass-val" : "fail-val",
+      baselineClass: bl.audit_receipts > 0 ? "pass-val" : "fail-val",
+    },
+  ];
+
+  return (
+    <div className="baseline-panel">
+      <div className="baseline-header">
+        <GitCompare size={15} />
+        VERA vs Baseline (this fixture)
+      </div>
+      <table className="baseline-table">
+        <thead>
+          <tr>
+            <th>Metric</th>
+            <th>VERA</th>
+            <th>Baseline</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.label}>
+              <td className="baseline-label">{r.label}</td>
+              <td className={r.veraClass}>{r.vera}</td>
+              <td className={r.baselineClass}>{r.baseline}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 
 export function WorkflowPane({
   requestText,
@@ -34,10 +177,12 @@ export function WorkflowPane({
   approval,
   isRunning,
   error,
+  includeBaseline,
   onRequestTextChange,
   onFixtureChange,
   onRun,
   onApprovalDecide,
+  onToggleBaseline,
 }: Props) {
   const metrics = useMemo(() => {
     if (!result) return [];
@@ -49,18 +194,17 @@ export function WorkflowPane({
     ];
   }, [result]);
 
-  const finalStatePreview = useMemo(
-    () => (result?.final_state ? JSON.stringify(result.final_state, null, 2) : ""),
-    [result],
-  );
-
   const mismatchPreview = useMemo(
     () => (result?.mismatch_detail ? JSON.stringify(result.mismatch_detail, null, 2) : ""),
     [result],
   );
 
+  const fixtureDesc = FIXTURE_DESCRIPTIONS[fixtureId];
+  const narrative = result ? STATUS_NARRATIVE[result.status] : null;
+
   return (
     <section className="workspace">
+      {/* ── Request ── */}
       <section className="panel request-panel">
         <div className="panel-title">
           <FileText size={18} />
@@ -74,9 +218,23 @@ export function WorkflowPane({
             ))}
           </select>
         </label>
+        {fixtureDesc && (
+          <div className="fixture-desc">
+            <span className="fixture-label">{fixtureDesc.label}</span>
+            <p className="fixture-scenario">{fixtureDesc.scenario}</p>
+          </div>
+        )}
         <label>
           Customer message
           <textarea value={requestText} onChange={(e) => onRequestTextChange(e.target.value)} />
+        </label>
+        <label className="baseline-toggle-label">
+          <input
+            type="checkbox"
+            checked={includeBaseline}
+            onChange={(e) => onToggleBaseline(e.target.checked)}
+          />
+          Compare with baseline agent
         </label>
         <button onClick={onRun} disabled={isRunning} type="button">
           {isRunning ? <RefreshCw className="spin" size={18} /> : <Play size={18} />}
@@ -85,6 +243,7 @@ export function WorkflowPane({
         {error && <div className="inline-error">{error}</div>}
       </section>
 
+      {/* ── Result ── */}
       <section className="panel result-panel">
         <div className="panel-title">
           <ShieldCheck size={18} />
@@ -133,7 +292,8 @@ export function WorkflowPane({
                 </div>
               </div>
             )}
-            {result.message && <p className="message">{result.message}</p>}
+            {narrative && <p className="narrative">{narrative}</p>}
+            {result.baseline && <BaselinePanel result={result} />}
           </>
         ) : (
           <div className="empty-state">
@@ -143,6 +303,7 @@ export function WorkflowPane({
         )}
       </section>
 
+      {/* ── Timeline ── */}
       <section className="panel timeline-panel">
         <div className="panel-title">
           <Activity size={18} />
@@ -163,6 +324,7 @@ export function WorkflowPane({
         </div>
       </section>
 
+      {/* ── Audit Receipts ── */}
       <section className="panel audit-panel">
         <div className="panel-title">
           <GitCompare size={18} />
@@ -173,7 +335,7 @@ export function WorkflowPane({
             <article className="receipt" key={receipt.receipt_id}>
               <header>
                 <strong>{receipt.action_id}</strong>
-                <span>{receipt.outcome}</span>
+                <span className={`outcome-tag outcome-${receipt.outcome}`}>{receipt.outcome}</span>
               </header>
               <dl>
                 <div><dt>Expected</dt><dd>{receipt.intended_transition}</dd></div>
@@ -189,6 +351,7 @@ export function WorkflowPane({
         </div>
       </section>
 
+      {/* ── State ── */}
       <section className="panel state-panel">
         <div className="panel-title">
           <GitCompare size={18} />
@@ -202,7 +365,7 @@ export function WorkflowPane({
         )}
         <div className="state-block">
           <div className="state-block-title">Final State</div>
-          <pre>{finalStatePreview || "{}"}</pre>
+          <StateHighlight finalState={result?.final_state ?? null} />
         </div>
       </section>
     </section>

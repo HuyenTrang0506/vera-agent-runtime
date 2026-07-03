@@ -675,6 +675,213 @@ pre {
   text-align: right;
 }
 
+/* ── Fixture description ── */
+.fixture-desc {
+  background: #f4f8fc;
+  border: 1px solid #d4e1ee;
+  border-radius: 6px;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+}
+
+.fixture-label {
+  color: #176b87;
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.fixture-scenario {
+  color: #435268;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.5;
+  margin: 4px 0 0;
+}
+
+/* ── Baseline toggle ── */
+.baseline-toggle-label {
+  align-items: center;
+  display: flex;
+  flex-direction: row;
+  font-size: 13px;
+  font-weight: 700;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.baseline-toggle-label input[type="checkbox"] {
+  height: 16px;
+  margin: 0;
+  width: 16px;
+}
+
+/* ── Narrative ── */
+.narrative {
+  background: #f4f8fc;
+  border-left: 3px solid #176b87;
+  border-radius: 0 6px 6px 0;
+  color: #2d4257;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.5;
+  margin: 14px 0 0;
+  padding: 10px 12px;
+}
+
+/* ── Baseline comparison panel (inside result pane) ── */
+.baseline-panel {
+  border-top: 1px solid #e4edf5;
+  margin-top: 16px;
+  padding-top: 14px;
+}
+
+.baseline-header {
+  align-items: center;
+  color: #263646;
+  display: flex;
+  font-size: 13px;
+  font-weight: 900;
+  gap: 6px;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+}
+
+.baseline-table {
+  border-collapse: collapse;
+  font-size: 13px;
+  width: 100%;
+}
+
+.baseline-table th {
+  background: #f4f7fa;
+  border-bottom: 1px solid #dce5ef;
+  color: #4a5868;
+  font-size: 11px;
+  font-weight: 900;
+  padding: 6px 8px;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.baseline-table td {
+  border-bottom: 1px solid #edf1f6;
+  font-weight: 700;
+  padding: 6px 8px;
+}
+
+.baseline-label {
+  color: #627184;
+  font-size: 12px;
+}
+
+.warn-val {
+  color: #7a530c;
+  font-weight: 800;
+}
+
+/* ── State highlight KPIs ── */
+.state-highlight {
+  display: grid;
+  gap: 10px;
+}
+
+.state-kpi-row {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.state-kpi {
+  border-radius: 6px;
+  display: grid;
+  gap: 3px;
+  padding: 10px;
+}
+
+.state-kpi span {
+  color: #4a5d6d;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.state-kpi strong {
+  font-size: 20px;
+  font-weight: 900;
+  line-height: 1;
+  overflow-wrap: anywhere;
+}
+
+.kpi-good {
+  background: #eef8f3;
+  border: 1px solid #b3dcca;
+}
+
+.kpi-good strong {
+  color: #145c3a;
+}
+
+.kpi-bad {
+  background: #fff3f0;
+  border: 1px solid #f4c0b6;
+}
+
+.kpi-bad strong {
+  color: #8a2e1e;
+}
+
+.kpi-warn {
+  background: #fff8df;
+  border: 1px solid #ead17e;
+}
+
+.kpi-warn strong {
+  color: #74560c;
+}
+
+.kpi-neutral {
+  background: #f4f7fb;
+  border: 1px solid #d8e2ee;
+}
+
+.kpi-neutral strong {
+  color: #263646;
+  font-size: 13px;
+}
+
+/* ── Raw JSON toggle ── */
+.state-raw-toggle {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.state-raw-toggle summary {
+  color: #627184;
+  cursor: pointer;
+  padding: 4px 0;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.state-raw-toggle pre {
+  margin-top: 8px;
+}
+
+/* ── Outcome tag colours (receipt header) ── */
+.outcome-tag {
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 900;
+  padding: 4px 8px;
+  text-transform: capitalize;
+}
+
+.outcome-success { background: #edf7f2; color: #1b6848; }
+.outcome-recovered { background: #e8f4fb; color: #155a7a; }
+.outcome-blocked { background: #fff4ed; color: #7a3610; }
+.outcome-escalated { background: #fce4ec; color: #7a1c2e; }
+
 @media (max-width: 1120px) {
   .workspace {
     grid-template-columns: 1fr 1fr;

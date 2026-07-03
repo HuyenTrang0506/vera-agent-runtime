@@ -19,6 +19,13 @@ export type TimelineEvent = {
   state_hash: string | null;
 };
 
+export type BaselineComparison = {
+  status: string;
+  completed_refunds: number;
+  final_state_match: boolean;
+  audit_receipts: number;
+};
+
 export type WorkflowResult = {
   workflow_id: string;
   status: string;
@@ -32,6 +39,7 @@ export type WorkflowResult = {
   approval_id?: string | null;
   mismatch_detail?: Record<string, unknown> | null;
   message?: string | null;
+  baseline?: BaselineComparison | null;
 };
 
 export type ApprovalRecord = {

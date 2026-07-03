@@ -12,6 +12,7 @@ class WorkflowRequest(BaseModel):
     request_text: str
     fixture_id: str
     operator_id: str = "op_demo"
+    include_baseline: bool = False
 
 
 class TimelineEvent(BaseModel):
@@ -21,6 +22,13 @@ class TimelineEvent(BaseModel):
     summary: str
     receipt_id: str | None = None
     state_hash: str | None = None
+
+
+class BaselineComparison(BaseModel):
+    status: str
+    completed_refunds: int
+    final_state_match: bool
+    audit_receipts: int
 
 
 class WorkflowRunResult(BaseModel):
@@ -36,3 +44,4 @@ class WorkflowRunResult(BaseModel):
     approval_id: str | None = None
     mismatch_detail: dict[str, Any] | None = None
     message: str | None = None
+    baseline: BaselineComparison | None = None

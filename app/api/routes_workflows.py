@@ -7,10 +7,13 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from app.domains.support.tools import correct_ticket_status
+from app.eval.baselines import run_description_only_baseline_task
+from app.models.evaluation import BenchmarkTask
 from app.models.state import SupportState, TicketStatus
-from app.models.workflow import WorkflowRequest, WorkflowRunResult
+from app.models.workflow import BaselineComparison, WorkflowRequest, WorkflowRunResult
 from app.services.action_controller import run_support_workflow
 from app.services.state_service import (
+    load_support_fixture,
     load_workflow_result,
     save_workflow_result,
     snapshot_state,
@@ -26,12 +29,39 @@ class TicketCorrectionRequest(BaseModel):
     operator_id: str = "op_demo"
 
 
+def _baseline_comparison(fixture_id: str) -> BaselineComparison:
+    fixture = load_support_fixture(fixture_id)
+    task = BenchmarkTask(
+        task_id=fixture_id,
+        domain="support",
+        fixture_id=fixture_id,
+        request_text="",
+        failure_mode=fixture.failure_mode,
+    )
+    bl = run_description_only_baseline_task(task)
+    final_state = bl.final_state or {}
+    completed_refunds = sum(
+        1
+        for r in final_state.get("refunds", {}).values()
+        if isinstance(r, dict) and r.get("status") == "completed"
+    )
+    return BaselineComparison(
+        status=bl.status,
+        completed_refunds=completed_refunds,
+        final_state_match=bl.final_state_match,
+        audit_receipts=len(bl.audit_receipt_ids),
+    )
+
+
 @router.post("/run", response_model=WorkflowRunResult)
 def run_workflow(request: WorkflowRequest) -> WorkflowRunResult:
-    return run_support_workflow(
+    result = run_support_workflow(
         fixture_id=request.fixture_id,
         request_text=request.request_text,
     )
+    if request.include_baseline:
+        result = result.model_copy(update={"baseline": _baseline_comparison(request.fixture_id)})
+    return result
 
 
 @router.get("/{workflow_id}", response_model=WorkflowRunResult)
