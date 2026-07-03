@@ -24,17 +24,17 @@ This single mechanism also handles: unauthorized action prevention, approval gat
 
 Evaluated on 120 support cases, 5 repeated runs each:
 
-| Metric | VERA | Baseline |
-|---|---|---|
-| Business Task Success Rate | **94.4%** | lower |
-| Final State Exact Match | **100%** | — |
-| Desired Transition Match | **100%** | — |
-| Forbidden Transitions | **0** | non-zero |
-| Duplicate Refunds | **0** | non-zero on timeout cases |
-| Approval Recall | **100%** | — |
-| Audit Completeness | **100%** | — |
+| Metric | VERA | Baseline | Delta |
+|---|---|---|---|
+| Business Task Success Rate | **91.7%** | 83.3% | +8.4 pp |
+| Final State Exact Match | **100%** | 41.7% | +58.3 pp |
+| Desired Transition Match | **100%** | 100% | — |
+| Forbidden Transitions | **0** | 0 | — |
+| Duplicate Refunds | **0** | 0 | — |
+| Approval Recall | **100%** | 0% | +100 pp |
+| Audit Completeness | **100%** | 0% | +100 pp |
 
-Baseline is the same Qwen model using tool names, descriptions, and schemas only — no transition metadata.
+Baseline is the same Qwen model with tool names, descriptions, and schemas only — no transition metadata, no policy engine, no audit.
 
 ## What It Does
 
