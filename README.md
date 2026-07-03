@@ -86,6 +86,7 @@ Demo CLI:
 
 ```bash
 python scripts/run_demo.py --fixture support_refund_happy_001
+python scripts/run_demo.py --fixture support_refund_timeout_after_commit_001 --compare-baseline
 ```
 
 Evaluation CLI:

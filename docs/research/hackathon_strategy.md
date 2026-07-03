@@ -104,7 +104,7 @@ Same email, same timeout. VERA extracts intent → desired transition `T_REFUND_
 Operator UI: timeline, pre/post state diff, audit receipt with pre/post state hashes, policy decision logged.
 
 **[2:15-2:45] Numbers:**
-94.4% BTSR, 0 duplicate refunds, 100% audit completeness, 100% approval recall. pass^5 reliability.
+91.7% BTSR vs 83.3% baseline, 0 duplicate refunds, 100% audit completeness, 100% approval recall. pass^5 reliability.
 
 **[2:45-3:00] Mechanism:**
 "VERA's tool registry carries state transition specs. The action controller selects tools by transition affordance, validates observed state against declared effects. This works for any enterprise domain."
@@ -127,7 +127,7 @@ Operator UI: timeline, pre/post state diff, audit receipt with pre/post state ha
 **Option 3: Narrow into customer support, reposition, rename. Do not rebuild.**
 
 What is working:
-- 94.4% BTSR vs baseline
+- 91.7% BTSR vs 83.3% baseline (+8.4 pp)
 - 100% FSEM, 100% DTMR, 0 forbidden transitions, 0 duplicate refunds
 - Full evaluation harness with baseline comparison
 - Working UI with timeline, approval controls, audit receipts
