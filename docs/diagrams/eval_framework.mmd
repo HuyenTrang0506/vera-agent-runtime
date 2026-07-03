@@ -1,0 +1,42 @@
+flowchart LR
+    subgraph Input["Input"]
+        B[(120-case\nbenchmark\nJSONL)]
+        F[(Deterministic\nfixtures)]
+    end
+
+    subgraph Runs["Repeated Runs  ×5"]
+        VERA[VERA\nrun_support_workflow]
+        BASE[Baseline\ndescription-only]
+    end
+
+    subgraph Metrics["P0 Metrics"]
+        M1["Business Task\nSuccess Rate\n91.7% vs 83.3%"]
+        M2["Final State\nExact Match\n100% vs 41.7%"]
+        M3["Desired Transition\nMatch Rate\n100%"]
+        M4["Duplicate\nRefund Count\n0"]
+        M5["Forbidden\nTransition Count\n0"]
+        M6["Approval Recall\n100% vs 0%"]
+        M7["Rejection\nCompliance\n100%"]
+        M8["Audit\nCompleteness\n100% vs 0%"]
+    end
+
+    subgraph Reliability["Reliability"]
+        PK["pass^k\nall k runs succeed"]
+    end
+
+    B --> VERA
+    B --> BASE
+    F --> VERA
+    F --> BASE
+    VERA --> M1 & M2 & M3 & M4 & M5 & M6 & M7 & M8
+    BASE --> M1 & M2 & M6 & M8
+    VERA --> PK
+
+    style M1 fill:#e8f5e9,stroke:#4caf50
+    style M2 fill:#e8f5e9,stroke:#4caf50
+    style M3 fill:#e8f5e9,stroke:#4caf50
+    style M4 fill:#e8f5e9,stroke:#4caf50
+    style M5 fill:#e8f5e9,stroke:#4caf50
+    style M6 fill:#e8f5e9,stroke:#4caf50
+    style M7 fill:#e8f5e9,stroke:#4caf50
+    style M8 fill:#e8f5e9,stroke:#4caf50

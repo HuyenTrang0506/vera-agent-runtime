@@ -1,0 +1,57 @@
+flowchart TB
+    subgraph UI["Operator Console  (React / Vite)"]
+        UI1[Workflow Runner]
+        UI2[Approval Controls]
+        UI3[Benchmark Pane\nVERA vs Baseline]
+        UI4[Audit Timeline]
+    end
+
+    subgraph API["FastAPI Backend"]
+        R1["POST /workflows/run"]
+        R2["POST /approvals"]
+        R3["GET /audit"]
+        R4["POST /evaluation/run"]
+    end
+
+    subgraph Core["Action Controller"]
+        AC[run_support_workflow\nOrchestrates UC1–UC5]
+    end
+
+    subgraph Services["Services"]
+        S1[QwenService\nextraction]
+        S2[PolicyService\nrules]
+        S3[StateService\nsnapshot · hash]
+        S4[TransitionService\nvalidate delta]
+        S5[IdempotencyService\nkey registry]
+        S6[RecoveryService\nrecheck · recover]
+        S7[AuditService\nreceipts]
+        S8[ApprovalService\nlifecycle]
+    end
+
+    subgraph Domain["Domain Tools (Support / Finance)"]
+        T1[lookup_customer\nlookup_order\nlookup_payment]
+        T2[create_refund\nfailure modes]
+        T3[update_ticket\nresolve_ticket]
+    end
+
+    subgraph Eval["Evaluation"]
+        E1[BenchmarkRunner\n120 cases · 5 runs]
+        E2[BaselineAgent\ndescription-only]
+        E3[P0Metrics\n8 metrics · pass^k]
+    end
+
+    subgraph Data["Data"]
+        D1[(Fixtures\nJSON)]
+        D2[(Benchmark\nJSONL)]
+        D3[(Results\nJSON snapshots)]
+    end
+
+    UI --> API
+    API --> Core
+    Core --> Services
+    Core --> Domain
+    Services --> Data
+    Domain --> Data
+    Eval --> Domain
+    Eval --> Data
+    R4 --> Eval

@@ -1,8 +1,4 @@
-# SafeFlow (VERA)
-
-> **Rename recommendation for submission: VERA — Verified Execution Runtime for Agents**
->
-> "SafeFlow" reads as generic middleware. "VERA" names the mechanism, sounds like a product, and is memorable in a 3-minute demo.
+# VERA — Verified Execution Runtime for Agents
 
 ## The Problem
 
@@ -20,6 +16,14 @@ Before execution, VERA validates preconditions and policy. After execution, VERA
 
 This single mechanism also handles: unauthorized action prevention, approval gating for high-value transactions, policy enforcement, state mismatch escalation, and complete audit trails.
 
+## How It Works
+
+![VERA system flow](docs/diagrams/vera_system_flow.png)
+
+The key scenario — timeout after commit:
+
+![UC2 timeout recovery: baseline vs VERA](docs/diagrams/uc2_timeout_recovery.png)
+
 ## Benchmark Results
 
 Evaluated on 120 support cases, 5 repeated runs each:
@@ -35,6 +39,8 @@ Evaluated on 120 support cases, 5 repeated runs each:
 | Audit Completeness | **100%** | 0% | +100 pp |
 
 Baseline is the same Qwen model with tool names, descriptions, and schemas only — no transition metadata, no policy engine, no audit.
+
+![Evaluation framework](docs/diagrams/eval_framework.png)
 
 ## What It Does
 
@@ -117,7 +123,7 @@ npm --prefix ui run lint
 
 ## Data
 
-SafeFlow uses deterministic synthetic fixtures for reproducible evaluation.
+VERA uses deterministic synthetic fixtures for reproducible evaluation.
 
 Main benchmark files:
 
@@ -130,6 +136,10 @@ Regenerate and audit data:
 make generate-data
 make audit-data
 ```
+
+## Architecture
+
+![Architecture](docs/diagrams/architecture.png)
 
 ## Project Structure
 

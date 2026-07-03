@@ -1,0 +1,32 @@
+sequenceDiagram
+    participant Email as Customer Email
+    participant Agent as Agent
+    participant API as create_refund API
+    participant State as Business State DB
+
+    rect rgb(255, 235, 235)
+        Note over Agent,State: Baseline — description/schema-only
+        Email->>Agent: "Charged twice for order A102"
+        Agent->>API: create_refund(pay_dup, $99)
+        API->>State: COMMIT refund ✓
+        API-->>Agent: ⏱ timeout
+        Note over Agent: No state check.<br/>Assumes failure.
+        Agent->>API: create_refund(pay_dup, $99) [retry]
+        API-->>Agent: duplicate_key error / second refund
+        Note over State: ⚠️ 2 completed refunds<br/>$99 lost
+    end
+
+    rect rgb(232, 245, 233)
+        Note over Agent,State: VERA — state-transition-aware
+        Email->>Agent: "Charged twice for order A102"
+        Agent->>Agent: Extract intent → T_REFUND_CREATE
+        Agent->>State: Snapshot pre-state (hash A)
+        Agent->>API: create_refund(pay_dup, $99, idempotency_key=K1)
+        API->>State: COMMIT refund ✓
+        API-->>Agent: ⏱ timeout
+        Agent->>State: Recheck — did T_REFUND_CREATE commit?
+        State-->>Agent: refund ref_001 status=completed ✓
+        Agent->>State: Snapshot post-state (hash B)
+        Agent->>Agent: Emit audit receipt<br/>(pre=A, post=B, outcome=recovered)
+        Note over State: ✅ 1 completed refund<br/>Recovered safely
+    end

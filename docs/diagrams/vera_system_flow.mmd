@@ -1,0 +1,33 @@
+flowchart TD
+    A([Customer Email]) --> B[Qwen Extraction\nIntent · Order ID · Desired Transition]
+    B --> C{Order\nFound?}
+    C -- No --> FAIL1([failed_safe])
+    C -- Yes --> D[State Snapshot\npre_hash]
+    D --> E{Duplicate\nPayment?}
+    E -- No --> DENY([denied\nNo duplicate found])
+    E -- Yes --> F[Policy Check\nAmount · Prior refunds]
+    F -- deny --> DENY2([denied\nPolicy blocked])
+    F -- approval_required --> G[Approval Gate\napproval_pending]
+    G -- rejected --> MAN([pending_manual_review])
+    G -- approved --> H
+    F -- allow --> H[create_refund\n+ idempotency key]
+    H -- success --> I[State Snapshot\npost_hash]
+    H -- timeout --> J{State\nRecheck}
+    J -- refund committed --> K[Recover\ncompleted_with_recovered_timeout]
+    J -- not committed --> RETRY([retry once])
+    RETRY --> H
+    I --> L[Transition Validation\nexpected delta == observed delta?]
+    L -- mismatch --> ESC([escalated_state_mismatch])
+    L -- match --> M[update_ticket\nresolve · draft response]
+    K --> M
+    M --> N[Audit Receipts\npre/post hash · policy · outcome]
+    N --> O([completed])
+
+    style A fill:#e8f4f8,stroke:#2196f3
+    style O fill:#e8f5e9,stroke:#4caf50
+    style FAIL1 fill:#fce4ec,stroke:#e91e63
+    style DENY fill:#fff3e0,stroke:#ff9800
+    style DENY2 fill:#fff3e0,stroke:#ff9800
+    style MAN fill:#fff3e0,stroke:#ff9800
+    style ESC fill:#fce4ec,stroke:#e91e63
+    style K fill:#e8f5e9,stroke:#4caf50
