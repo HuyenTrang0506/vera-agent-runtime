@@ -69,12 +69,20 @@ export type EvalTaskRow = {
   audit_receipts: number;
 };
 
+export type ComparisonRow = {
+  safeflow: number;
+  baseline: number;
+  delta?: number;
+};
+
 export type EvalResult = {
   run_id: string;
   status: string;
   benchmark_path: string;
   repeated_runs: number;
+  pass_k?: number;
   metrics: EvalMetrics;
   repeated_run_summary: EvalRepeatedRunSummary;
   tasks: EvalTaskRow[];
+  comparison?: Record<string, ComparisonRow>;
 };

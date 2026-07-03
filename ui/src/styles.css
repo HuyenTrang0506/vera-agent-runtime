@@ -651,6 +651,30 @@ pre {
   color: #a93020;
 }
 
+/* ── pass/fail inline value colours ── */
+.pass-val {
+  color: #145c3a;
+  font-weight: 800;
+}
+
+.fail-val {
+  color: #8a2e1e;
+  font-weight: 800;
+}
+
+/* ── Comparison table panel ── */
+.dashboard-comparison-panel .task-table td:nth-child(2),
+.dashboard-comparison-panel .task-table td:nth-child(3) {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.dashboard-comparison-panel .task-table td:nth-child(4) {
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  text-align: right;
+}
+
 @media (max-width: 1120px) {
   .workspace {
     grid-template-columns: 1fr 1fr;

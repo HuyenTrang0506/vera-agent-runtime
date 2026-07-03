@@ -60,7 +60,7 @@ function App() {
       const res = await fetch(`${API_BASE}/evaluation/run`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ repeated_runs: 1 }),
+        body: JSON.stringify({ repeated_runs: 2, include_baseline: true }),
       });
       if (!res.ok) throw new Error(`Evaluation failed with ${res.status}`);
       setEvalResult((await res.json()) as EvalResult);
