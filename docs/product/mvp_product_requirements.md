@@ -113,16 +113,18 @@ P2 is stretch.
 
 P0 MVP must report these metrics on the 20-case support benchmark:
 
-| Metric | Target |
-| --- | ---: |
-| Business Task Success Rate | >= 80% |
-| Final State Exact Match | >= 80% |
-| Desired Transition Match Rate | >= 85% |
-| Forbidden Transition Count | 0 on critical cases |
-| Duplicate Refund Count | 0 for SafeFlow retry cases |
-| Approval Recall | 100% for high-value refunds |
-| Rejection Compliance Rate | 100% |
-| Audit Completeness Rate | >= 95% |
+| Metric | Target | Actual (36-case demo, 5 runs) |
+| --- | ---: | ---: |
+| Business Task Success Rate | >= 80% | 94.4% |
+| Final State Exact Match | >= 80% | 100% |
+| Desired Transition Match Rate | >= 85% | 100% |
+| Forbidden Transition Count | 0 on critical cases | 0 |
+| Duplicate Refund Count | 0 for SafeFlow retry cases | 0 |
+| Approval Recall | 100% for high-value refunds | 100% |
+| Rejection Compliance Rate | 100% | 100% |
+| Audit Completeness Rate | >= 95% | 100% |
+
+Results also validated on 120-case support_large_120.jsonl with 1 repeated run.
 
 P1 metrics:
 
@@ -1148,8 +1150,11 @@ Domain tools are function-based. Shared services own cross-cutting concerns.
 | B17 | P0 | Implement evaluation CLI | B15, B16 | metrics report |
 | B18 | P0 | Build React/Vite demo UI | B10-B14 | operator demo |
 | B19 | P1 | Finance duplicate invoice thin slice | P0 stable | finance demo |
-| B20 | P1 | Metrics dashboard UI | B17 | UI charts |
+| B20 | P1 | Metrics dashboard UI | B17 | UI charts — Done 2026-07-03 |
 | B21 | P2 | LangGraph baseline | B17 | extra baseline |
+| B22 | P1 | Benchmark predicate evaluator | B16, B17 | final_state_match from predicates — Done 2026-07-03 |
+| B23 | P1 | Audit receipts on all failed_safe paths | B11, B17 | audit_completeness 100% — Done 2026-07-03 |
+| B24 | P1 | Align support_large_120 benchmark predicates | B16, B22 | large benchmark runnable — Done 2026-07-03 |
 
 ## 21. Revised Sprint Plan
 
