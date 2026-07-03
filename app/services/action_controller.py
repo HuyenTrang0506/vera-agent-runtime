@@ -49,13 +49,25 @@ def _run_support_workflow(
     order_id = extraction.entities.order_id
 
     if order_id is None:
+        cur_hash = state_hash(state)
+        safe_receipt = build_receipt(
+            workflow_id=workflow_id,
+            action_id="safe_stop_missing_order_id",
+            intended_transition="T_REFUND_CREATE",
+            observed_transition="none",
+            policy_decision=PolicyDecision.DENY,
+            pre_state_hash=cur_hash,
+            post_state_hash=cur_hash,
+            outcome="blocked",
+        )
         return WorkflowRunResult(
             workflow_id=workflow_id,
             status=WorkflowStatus.FAILED_SAFE,
             desired_transition_id=extraction.desired_transition.transition_id,
             policy_decision=None,
             final_state_match=False,
-            audit_receipt_ids=[],
+            audit_receipt_ids=[safe_receipt.receipt_id],
+            audit_receipts=[safe_receipt],
             message="Extraction did not identify an order_id.",
         )
 
@@ -225,13 +237,25 @@ def _run_support_workflow(
     if not refund_result.success and should_recheck_state(refund_result.error or ""):
         recovered_timeout = True
     elif not refund_result.success:
+        err_hash = state_hash(state)
+        err_receipt = build_receipt(
+            workflow_id=workflow_id,
+            action_id="create_refund",
+            intended_transition="T_REFUND_CREATE",
+            observed_transition="none",
+            policy_decision=policy.decision,
+            pre_state_hash=pre_refund_hash,
+            post_state_hash=err_hash,
+            outcome="failed",
+        )
         return WorkflowRunResult(
             workflow_id=workflow_id,
             status=WorkflowStatus.FAILED_SAFE,
             desired_transition_id=extraction.desired_transition.transition_id,
             policy_decision=policy.decision,
             final_state_match=False,
-            audit_receipt_ids=[],
+            audit_receipt_ids=[err_receipt.receipt_id],
+            audit_receipts=[err_receipt],
             message=refund_result.error,
         )
     post_refund_hash = state_hash(state)
@@ -275,13 +299,24 @@ def _run_support_workflow(
         )
 
     if not validation.matches and recovered_timeout:
+        timeout_receipt = build_receipt(
+            workflow_id=workflow_id,
+            action_id=refund_result.refund.refund_id if refund_result.refund else "create_refund",
+            intended_transition="T_REFUND_CREATE",
+            observed_transition="none",
+            policy_decision=policy.decision,
+            pre_state_hash=pre_refund_hash,
+            post_state_hash=post_refund_hash,
+            outcome="failed",
+        )
         return WorkflowRunResult(
             workflow_id=workflow_id,
             status=WorkflowStatus.FAILED_SAFE,
             desired_transition_id=extraction.desired_transition.transition_id,
             policy_decision=policy.decision,
             final_state_match=False,
-            audit_receipt_ids=[],
+            audit_receipt_ids=[timeout_receipt.receipt_id],
+            audit_receipts=[timeout_receipt],
             message="Timeout-after-commit recovery could not find committed refund.",
         )
 
@@ -305,7 +340,8 @@ def _run_support_workflow(
             desired_transition_id=extraction.desired_transition.transition_id,
             policy_decision=policy.decision,
             final_state_match=False,
-            audit_receipt_ids=[],
+            audit_receipt_ids=[refund_receipt.receipt_id],
+            audit_receipts=[refund_receipt],
             message="Cannot resolve ticket because ticket or refund is missing.",
         )
 
