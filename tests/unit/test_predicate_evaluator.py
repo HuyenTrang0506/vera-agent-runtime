@@ -1,6 +1,5 @@
 """Unit tests for app.eval.predicates."""
 
-import pytest
 from app.eval.predicates import evaluate_predicate, evaluate_predicates
 from app.models.audit import AuditReceipt
 from app.models.workflow import WorkflowRunResult
