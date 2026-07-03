@@ -14,7 +14,8 @@ docs/
 |   +-- code_structure.md
 |   +-- project_conventions.md
 |   +-- setup_decisions.md
-|   `-- test_data_criteria.md
+|   +-- test_data_criteria.md
+|   `-- ui_design_conventions.md
 +-- evaluation/
 |   `-- state_transition_evaluation_metrics.md
 +-- product/
@@ -34,6 +35,7 @@ docs/
 - `development/code_structure.md` - actual implementation structure for backend, UI, scripts, tests, and data.
 - `development/setup_decisions.md` - setup and infrastructure decisions, including why P0 does not use Stripe, Redis, external DBs, or public online DBs as benchmark state.
 - `development/test_data_criteria.md` - criteria for benchmark/test data quality and assessment of the current datasets.
+- `development/ui_design_conventions.md` - UI design and implementation conventions for the React/Vite operator console, inspired by Amazon/AWS console patterns.
 - `research/failure_patterns.md` - evidence of common agent failures from repository issue analysis.
 - `research/qwen_hackathon_topic_fit.md` - hackathon track framing for SafeFlow/Qwen Autopilot.
 - `research/hackathon_plan.md` - original research workflow plan for selecting the hackathon direction.
