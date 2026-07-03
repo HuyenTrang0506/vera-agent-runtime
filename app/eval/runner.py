@@ -128,10 +128,18 @@ def run_benchmark(benchmark_path: str, repeated_runs: int | None = None) -> dict
                 }
             )
 
+    # pass^k: fraction of tasks where ALL k runs succeeded
+    pass_k = (
+        sum(1 for count in task_success_counts.values() if count == run_count) / len(tasks)
+        if tasks
+        else 0.0
+    )
+
     return {
         "benchmark_path": benchmark_path,
         "repeated_runs": run_count,
         "metrics": metrics.summary(),
+        "pass_k": round(pass_k, 4),
         "repeated_run_summary": {
             "task_count": len(tasks),
             "total_runs": len(tasks) * run_count,
