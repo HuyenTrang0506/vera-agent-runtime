@@ -129,13 +129,19 @@ def run_description_only_baseline(
     tasks = [BenchmarkTask.model_validate(row) for row in task_rows]
     metrics = P0Metrics()
     task_results: list[dict[str, Any]] = []
+    task_success_counts: dict[str, int] = {task.task_id: 0 for task in tasks}
 
     for run_index in range(repeated_runs):
         for task, raw in zip(tasks, task_rows, strict=True):
+            from app.eval.metrics import is_business_success
+
             approval_script = raw.get("approval_script")
             payment_id = _infer_payment_id(task.fixture_id)
             result = run_description_only_baseline_task(task)
             is_forbidden = _completed_refund_count(result, payment_id) > 1
+
+            if is_business_success(result):
+                task_success_counts[task.task_id] += 1
 
             metrics.record(
                 result,
@@ -157,10 +163,17 @@ def run_description_only_baseline(
                 }
             )
 
+    pass_k = (
+        sum(1 for count in task_success_counts.values() if count == repeated_runs) / len(tasks)
+        if tasks
+        else 0.0
+    )
+
     return {
         "baseline": "description_schema_only",
         "benchmark_path": benchmark_path,
         "repeated_runs": repeated_runs,
+        "pass_k": round(pass_k, 4),
         "metrics": metrics.summary(),
         "tasks": task_results,
     }
