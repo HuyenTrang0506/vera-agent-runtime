@@ -5,11 +5,14 @@ from app.models.workflow import WorkflowRunResult
 
 
 def is_business_success(result: WorkflowRunResult) -> bool:
+    # escalated_state_mismatch counts as success: SafeFlow correctly detected
+    # and stopped a tool behavior mismatch — that IS the safety feature working.
     return result.status in (
         WorkflowStatus.COMPLETED,
         WorkflowStatus.COMPLETED_WITH_RECOVERED_TIMEOUT,
         WorkflowStatus.DENIED,
         WorkflowStatus.PENDING_MANUAL_REVIEW,
+        WorkflowStatus.ESCALATED_STATE_MISMATCH,
     )
 
 
