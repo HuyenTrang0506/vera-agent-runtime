@@ -442,6 +442,215 @@ pre {
   }
 }
 
+/* ── Tab bar ── */
+.topbar-right {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+}
+
+.tab-bar {
+  background: #edf1f6;
+  border-radius: 8px;
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+}
+
+.tab-btn {
+  align-items: center;
+  background: transparent;
+  border-radius: 6px;
+  color: #4a5868;
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 800;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 12px;
+  width: auto;
+}
+
+.tab-btn.active {
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  color: #176b87;
+}
+
+/* ── Dashboard layout ── */
+.dashboard {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(280px, 0.7fr) minmax(420px, 1.3fr);
+  margin: 0 auto;
+  max-width: 1320px;
+}
+
+.dashboard-run-panel {
+  align-content: start;
+  display: grid;
+  gap: 14px;
+}
+
+.dashboard-tasks-panel {
+  grid-column: span 2;
+}
+
+.muted-sm {
+  color: #627184;
+  font-size: 13px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.btn-bench {
+  max-width: 220px;
+}
+
+.eval-meta {
+  border-top: 1px solid #e6edf4;
+  margin: 0;
+  padding-top: 10px;
+}
+
+.eval-meta > div {
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  padding: 4px 0;
+}
+
+.eval-meta dt {
+  color: #627184;
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.eval-meta dd {
+  font-size: 12px;
+  font-weight: 800;
+  margin: 0;
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+
+/* ── Eval metric grid ── */
+.eval-metric-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.eval-metric {
+  border-radius: 7px;
+  display: grid;
+  gap: 4px;
+  min-height: 76px;
+  padding: 11px;
+}
+
+.eval-metric.pass {
+  background: #eef8f3;
+  border: 1px solid #b3dcca;
+}
+
+.eval-metric.fail {
+  background: #fff3f0;
+  border: 1px solid #f4c0b6;
+}
+
+.eval-metric span {
+  color: #4a5d6d;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.eval-metric strong {
+  font-size: 22px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.eval-metric.pass strong {
+  color: #145c3a;
+}
+
+.eval-metric.fail strong {
+  color: #8a2e1e;
+}
+
+.eval-metric em {
+  color: #7a8fa0;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+/* ── Task table ── */
+.task-table-wrap {
+  max-height: 460px;
+  overflow: auto;
+}
+
+.task-table {
+  border-collapse: collapse;
+  font-size: 13px;
+  width: 100%;
+}
+
+.task-table th {
+  background: #f4f7fa;
+  border-bottom: 1px solid #dce5ef;
+  color: #4a5868;
+  font-size: 11px;
+  font-weight: 900;
+  padding: 8px 10px;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.task-table td {
+  border-bottom: 1px solid #edf1f6;
+  font-weight: 700;
+  padding: 7px 10px;
+  vertical-align: middle;
+}
+
+.task-id-cell {
+  font-size: 12px;
+  max-width: 220px;
+  overflow-wrap: anywhere;
+}
+
+.status-tag {
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 900;
+  padding: 3px 8px;
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+
+.status-tag.completed,
+.status-tag.completed_with_recovered_timeout {
+  background: #eef8f3;
+  color: #14573c;
+}
+
+.status-tag.denied,
+.status-tag.pending_manual_review,
+.status-tag.escalated_state_mismatch,
+.status-tag.failed_safe {
+  background: #fff3f0;
+  color: #8a2e1e;
+}
+
+.fail-icon {
+  color: #a93020;
+}
+
 @media (max-width: 1120px) {
   .workspace {
     grid-template-columns: 1fr 1fr;
