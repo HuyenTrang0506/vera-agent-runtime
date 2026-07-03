@@ -92,14 +92,14 @@ def evaluate_predicate(predicate: str, result: WorkflowRunResult, *, strict: boo
         m = _STATUS_RE.match(p)
         if m:
             return result.status == m.group(2)
-        return True
+        return not strict
 
     # ticket.status == 'X'
     if p.startswith("ticket.status"):
         m = _STATUS_RE.match(p)
         if m and result.final_state is not None:
             return _ticket_status(result.final_state) == m.group(2)
-        return True
+        return not strict
 
     # count_completed_refunds(...) OP N
     m = _COUNT_RE.match(p)
@@ -119,7 +119,7 @@ def evaluate_predicate(predicate: str, result: WorkflowRunResult, *, strict: boo
         pay_amount = _payment_amount(result.final_state, pid)
         if pay_amount is not None:
             return abs(total - pay_amount) < 0.01
-        return True
+        return not strict
 
     # create_refund.called == false / true
     m = _REFUND_CALLED_RE.match(p)

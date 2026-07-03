@@ -26,21 +26,13 @@ from app.models.policies import PolicyResult
 from app.models.workflow import WorkflowRunResult
 from app.services.approval_service import create_approval, is_approved, is_rejected
 from app.services.audit_service import build_receipt, timeline_event_from_receipt
-from app.services.state_service import load_finance_fixture, save_workflow_result
-
-
-_FINANCE_APPROVAL_THRESHOLD = 5000.0
-
-
-def _finance_state_hash(state_dict: dict) -> str:
-    import hashlib, json
-    return hashlib.sha256(
-        json.dumps(state_dict, sort_keys=True, default=str).encode()
-    ).hexdigest()[:16]
-
-
-def _snapshot(state) -> dict:
-    return state.model_dump()
+from app.core.config import settings
+from app.services.state_service import (
+    load_finance_fixture,
+    save_workflow_result,
+    snapshot_state,
+    state_hash,
+)
 
 
 def _evaluate_invoice_policy(state, invoice_id: str) -> PolicyResult:
@@ -84,7 +76,7 @@ def _evaluate_invoice_policy(state, invoice_id: str) -> PolicyResult:
             reason="A completed payment already exists for this invoice.",
         )
 
-    if invoice.amount >= _FINANCE_APPROVAL_THRESHOLD:
+    if invoice.amount >= settings.finance_approval_threshold:
         return PolicyResult(
             decision=PolicyDecision.APPROVAL_REQUIRED,
             rule_ids=[P_HIGH_VALUE_INVOICE_APPROVAL],
@@ -113,9 +105,9 @@ def run_finance_workflow(
         already_paid = find_completed_payment_for_invoice(state, duplicate_original.invoice_id)
         if already_paid is not None:
             mark_invoice_duplicate(state, invoice_id, duplicate_original.invoice_id)
-            pre_hash = _finance_state_hash(_snapshot(state))
+            pre_hash = state_hash(state)
             hold_invoice(state, invoice_id, "Duplicate of already-paid invoice.")
-            post_hash = _finance_state_hash(_snapshot(state))
+            post_hash = state_hash(state)
             receipt = build_receipt(
                 workflow_id=workflow_id,
                 action_id="mark_invoice_duplicate",
@@ -134,7 +126,7 @@ def run_finance_workflow(
                 final_state_match=True,
                 audit_receipt_ids=[receipt.receipt_id],
                 audit_receipts=[receipt],
-                final_state=_snapshot(state),
+                final_state=snapshot_state(state),
                 message=f"Invoice {invoice_id} is a duplicate of already-paid {duplicate_original.invoice_id}. Payment blocked.",
             )
             result.timeline_events = [timeline_event_from_receipt(r) for r in result.audit_receipts]
@@ -144,7 +136,7 @@ def run_finance_workflow(
     policy = _evaluate_invoice_policy(state, invoice_id)
 
     if policy.decision == PolicyDecision.DENY:
-        pre_hash = _finance_state_hash(_snapshot(state))
+        pre_hash = state_hash(state)
         receipt = build_receipt(
             workflow_id=workflow_id,
             action_id="policy_check",
@@ -163,7 +155,7 @@ def run_finance_workflow(
             final_state_match=True,
             audit_receipt_ids=[receipt.receipt_id],
             audit_receipts=[receipt],
-            final_state=_snapshot(state),
+            final_state=snapshot_state(state),
             message=policy.reason,
         )
         result.timeline_events = [timeline_event_from_receipt(r) for r in result.audit_receipts]
@@ -173,9 +165,9 @@ def run_finance_workflow(
     if policy.decision == PolicyDecision.APPROVAL_REQUIRED:
         if approval_record is not None:
             if is_rejected(approval_record):
-                pre_hash = _finance_state_hash(_snapshot(state))
+                pre_hash = state_hash(state)
                 hold_invoice(state, invoice_id, "High-value approval rejected.")
-                post_hash = _finance_state_hash(_snapshot(state))
+                post_hash = state_hash(state)
                 receipt = build_receipt(
                     workflow_id=workflow_id,
                     action_id=approval_record.approval_id,
@@ -194,7 +186,7 @@ def run_finance_workflow(
                     final_state_match=True,
                     audit_receipt_ids=[receipt.receipt_id],
                     audit_receipts=[receipt],
-                    final_state=_snapshot(state),
+                    final_state=snapshot_state(state),
                     message="High-value invoice payment rejected by approver.",
                 )
                 result.timeline_events = [timeline_event_from_receipt(r) for r in result.audit_receipts]
@@ -209,7 +201,7 @@ def run_finance_workflow(
                     final_state_match=False,
                     audit_receipt_ids=[],
                     approval_id=approval_record.approval_id,
-                    final_state=_snapshot(state),
+                    final_state=snapshot_state(state),
                     message="Invoice payment pending high-value approval.",
                 )
                 save_workflow_result(result)
@@ -222,7 +214,7 @@ def run_finance_workflow(
                 requested_amount=invoice.amount,
                 policy_rule_id=P_HIGH_VALUE_INVOICE_APPROVAL,
             )
-            pre_hash = _finance_state_hash(_snapshot(state))
+            pre_hash = state_hash(state)
             approval_receipt = build_receipt(
                 workflow_id=workflow_id,
                 action_id=approval.approval_id,
@@ -242,7 +234,7 @@ def run_finance_workflow(
                 audit_receipt_ids=[approval_receipt.receipt_id],
                 audit_receipts=[approval_receipt],
                 approval_id=approval.approval_id,
-                final_state=_snapshot(state),
+                final_state=snapshot_state(state),
                 message=policy.reason,
             )
             result.timeline_events = [timeline_event_from_receipt(r) for r in result.audit_receipts]
@@ -254,14 +246,14 @@ def run_finance_workflow(
     idempotency_key = f"inv_{invoice_id}_{invoice.amount:.2f}"
     approval_id = approval_record.approval_id if approval_record else None
 
-    pre_hash = _finance_state_hash(_snapshot(state))
+    pre_hash = state_hash(state)
     pay_result = pay_invoice(
         state,
         invoice_id=invoice_id,
         idempotency_key=idempotency_key,
         failure_mode=fixture.failure_mode,
     )
-    post_hash = _finance_state_hash(_snapshot(state))
+    post_hash = state_hash(state)
 
     if not pay_result.success and pay_result.error != "timeout_after_commit":
         receipt = build_receipt(
@@ -318,7 +310,7 @@ def run_finance_workflow(
             final_state_match=False,
             audit_receipt_ids=[receipt.receipt_id],
             audit_receipts=[receipt],
-            final_state=_snapshot(state),
+            final_state=snapshot_state(state),
             message="Invoice payment reported success but invoice state was not updated.",
         )
         result.timeline_events = [timeline_event_from_receipt(r) for r in result.audit_receipts]
@@ -336,7 +328,7 @@ def run_finance_workflow(
         outcome=outcome,
     )
 
-    final_state = _snapshot(state)
+    final_state = snapshot_state(state)
     count_paid = sum(
         1 for p in state.payments.values()
         if p.invoice_id == invoice_id and p.status == FinancePaymentStatus.COMPLETED

@@ -10,7 +10,8 @@ from app.domains.support.tools import (
     find_ticket_for_order,
     resolve_ticket_with_completed_refund,
 )
-from app.eval.metrics import P0Metrics
+from app.eval.metrics import P0Metrics, is_business_success
+from app.eval.predicates import count_forbidden_violations
 from app.models.evaluation import BenchmarkTask
 from app.models.workflow import WorkflowRunResult
 from app.services.idempotency_service import refund_idempotency_key
@@ -133,12 +134,11 @@ def run_description_only_baseline(
 
     for run_index in range(repeated_runs):
         for task, raw in zip(tasks, task_rows, strict=True):
-            from app.eval.metrics import is_business_success
-
             approval_script = raw.get("approval_script")
             payment_id = _infer_payment_id(task.fixture_id)
             result = run_description_only_baseline_task(task)
-            is_forbidden = _completed_refund_count(result, payment_id) > 1
+            forbidden_violations = count_forbidden_violations(task.forbidden_predicates, result)
+            is_forbidden = forbidden_violations > 0
 
             if is_business_success(result):
                 task_success_counts[task.task_id] += 1

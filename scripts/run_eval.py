@@ -57,56 +57,66 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.domain == "finance":
-        # Finance benchmark runs inline — no full runner yet, just task-by-task
-        rows = []
-        for line in Path(args.benchmark).read_text().splitlines():
-            line = line.strip()
-            if line:
-                rows.append(json.loads(line))
+        from app.eval.predicates import count_forbidden_violations, evaluate_predicates
+        from app.models.evaluation import BenchmarkTask
+
+        task_rows = [
+            json.loads(line)
+            for line in Path(args.benchmark).read_text().splitlines()
+            if line.strip()
+        ]
+        # Validate each row eagerly — fail fast before any run starts
+        tasks = [BenchmarkTask.model_validate(row) for row in task_rows]
 
         run_count = args.repeated_runs or 1
         tasks_out = []
+        task_success_counts: dict[str, int] = {task.task_id: 0 for task in tasks}
+
         for run_idx in range(run_count):
-            for row in rows:
+            for task, raw in zip(tasks, task_rows, strict=True):
                 approval_record = None
-                if row.get("approval_script") == "reject":
+                approval_script = raw.get("approval_script")
+                if approval_script == "reject":
                     approval_record = ApprovalRecord(
-                        approval_id=f"apr_eval_{row['task_id']}",
-                        workflow_id=f"wf_eval_{row['task_id']}",
+                        approval_id=f"apr_eval_{task.task_id}",
+                        workflow_id=f"wf_eval_{task.task_id}",
                         status=ApprovalStatus.REJECTED,
                         requested_amount=0.0,
                         policy_rule_id="P_HIGH_VALUE_INVOICE_APPROVAL",
                         decided_by="eval_manager",
                     )
-                elif row.get("approval_script") == "approve":
+                elif approval_script == "approve":
                     approval_record = ApprovalRecord(
-                        approval_id=f"apr_eval_{row['task_id']}",
-                        workflow_id=f"wf_eval_{row['task_id']}",
+                        approval_id=f"apr_eval_{task.task_id}",
+                        workflow_id=f"wf_eval_{task.task_id}",
                         status=ApprovalStatus.APPROVED,
                         requested_amount=0.0,
                         policy_rule_id="P_HIGH_VALUE_INVOICE_APPROVAL",
                         decided_by="eval_manager",
                     )
 
+                invoice_id = raw.get("invoice_id") or ""
                 result = run_finance_workflow(
-                    fixture_id=row["fixture_id"],
-                    invoice_id=row["invoice_id"],
+                    fixture_id=task.fixture_id,
+                    invoice_id=invoice_id,
                     approval_record=approval_record,
                 )
 
-                expected = row.get("expected_final_predicates", [])
-                from app.eval.predicates import evaluate_predicate, count_forbidden_violations
+                fsm = evaluate_predicates(task.expected_final_predicates, result)
+                result = result.model_copy(update={"final_state_match": fsm})
 
-                fsm = all(evaluate_predicate(p, result) for p in expected)
                 forbidden_violations = count_forbidden_violations(
-                    row.get("forbidden_predicates", []), result
+                    task.forbidden_predicates, result
                 )
+                is_success = fsm and forbidden_violations == 0
+                if is_success:
+                    task_success_counts[task.task_id] += 1
 
                 tasks_out.append(
                     {
                         "run_index": run_idx,
-                        "task_id": row["task_id"],
-                        "fixture_id": row["fixture_id"],
+                        "task_id": task.task_id,
+                        "fixture_id": task.fixture_id,
                         "status": result.status,
                         "policy_decision": result.policy_decision,
                         "final_state_match": fsm,
@@ -115,22 +125,26 @@ def main() -> None:
                     }
                 )
 
-        total = len(tasks_out)
-        success = sum(
-            1 for t in tasks_out
-            if t["final_state_match"] and t["forbidden_violations"] == 0
+        num_tasks = len(tasks)
+        total_runs = len(tasks_out)
+        fsm_count = sum(1 for t in tasks_out if t["final_state_match"])
+        success_count = sum(1 for t in tasks_out if t["final_state_match"] and t["forbidden_violations"] == 0)
+        pass_k = (
+            round(sum(1 for c in task_success_counts.values() if c == run_count) / num_tasks, 4)
+            if num_tasks else 0.0
         )
+
         output = {
             "domain": "finance",
             "benchmark_path": args.benchmark,
             "repeated_runs": run_count,
+            "pass_k": pass_k,
             "metrics": {
-                "total_tasks": total,
-                "business_task_success_rate": round(success / total, 4) if total else 0.0,
+                "total_tasks": total_runs,
+                "task_count": num_tasks,
+                "business_task_success_rate": round(success_count / total_runs, 4) if total_runs else 0.0,
                 "forbidden_violation_count": sum(t["forbidden_violations"] for t in tasks_out),
-                "final_state_exact_match_rate": round(
-                    sum(1 for t in tasks_out if t["final_state_match"]) / total, 4
-                ) if total else 0.0,
+                "final_state_exact_match_rate": round(fsm_count / total_runs, 4) if total_runs else 0.0,
             },
             "tasks": tasks_out,
         }

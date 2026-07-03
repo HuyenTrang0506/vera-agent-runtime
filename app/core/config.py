@@ -26,6 +26,9 @@ class Settings:
     refund_approval_threshold: float = float(
         os.getenv("SAFEFLOW_REFUND_APPROVAL_THRESHOLD", "500")
     )
+    finance_approval_threshold: float = float(
+        os.getenv("SAFEFLOW_FINANCE_APPROVAL_THRESHOLD", "5000")
+    )
     max_extraction_repair_attempts: int = int(
         os.getenv("SAFEFLOW_MAX_EXTRACTION_REPAIR_ATTEMPTS", "1")
     )

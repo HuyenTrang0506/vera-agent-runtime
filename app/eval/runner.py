@@ -90,8 +90,18 @@ def run_benchmark(benchmark_path: str, repeated_runs: int | None = None) -> dict
             if approval_script is not None and not isinstance(approval_script, str):
                 raise ValueError(f"{task.task_id} approval_script must be a string or null")
 
-            expects_approval = "high_value" in task.fixture_id
-            expects_rejection = approval_script == "reject"
+            # Use explicit field when present; fall back to fixture-name heuristic
+            # for existing tasks that predate the field.
+            expects_approval = (
+                task.expects_approval
+                if task.expects_approval is not None
+                else "high_value" in task.fixture_id
+            )
+            expects_rejection = (
+                task.expects_rejection_compliance
+                if task.expects_rejection_compliance is not None
+                else approval_script == "reject"
+            )
             payment_id = _infer_payment_id(task.fixture_id)
 
             result = _run_task(task, approval_script)
