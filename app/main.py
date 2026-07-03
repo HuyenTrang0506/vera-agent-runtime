@@ -11,7 +11,7 @@ from app.core.config import settings
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="SafeFlow", version="0.1.0")
+    app = FastAPI(title="VERA", version="0.1.0")
     app.add_middleware(
         CORSMiddleware,
         allow_origins=list(settings.cors_origins),

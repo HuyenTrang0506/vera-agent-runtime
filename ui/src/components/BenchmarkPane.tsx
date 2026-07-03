@@ -79,14 +79,14 @@ export function BenchmarkPane({ evalResult, isRunning, error, onRun }: Props) {
             <section className="panel dashboard-comparison-panel">
               <div className="panel-title">
                 <GitCompare size={18} />
-                SafeFlow vs Baseline
+                VERA vs Baseline
               </div>
               <div className="task-table-wrap">
                 <table className="task-table">
                   <thead>
                     <tr>
                       <th>Metric</th>
-                      <th>SafeFlow</th>
+                      <th>VERA</th>
                       <th>Baseline</th>
                       <th>Delta</th>
                     </tr>
