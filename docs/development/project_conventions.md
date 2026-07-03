@@ -450,3 +450,60 @@ A dev task is done when:
 - audit/log output is inspectable if consequential
 - docs updated if contract changed
 - no P0 safety rule is violated
+
+## 19. Performance Rules
+
+Performance targets are part of the definition of done for any code that runs on the hot path (workflow execution, eval runner, state hashing, predicate evaluation).
+
+### Hard Targets
+
+| Operation | Limit | Measured By |
+| --- | --- | --- |
+| Single workflow run (fixture fallback, no Qwen) | < 500 ms wall-clock | `time python scripts/run_demo.py --fixture <id>` |
+| Full 36-case demo benchmark (5 runs, no Qwen) | < 30 s wall-clock | `time python scripts/run_eval.py --benchmark data/benchmark/support_demo.jsonl` |
+| State hash for a support fixture | < 5 ms | unit test with `time.perf_counter` |
+| Predicate evaluation for one task | < 2 ms | unit test with `time.perf_counter` |
+| API `/workflows/run` response (fixture fallback) | < 1 s end-to-end | manual `curl` timing |
+
+### Rules
+
+**No N+1 loops on state lookups.**
+Do not iterate the full payments/refunds/invoices dict for each predicate or policy check separately. Build an index or filter once per workflow run.
+
+**No unnecessary deep copies.**
+`model_copy(deep=True)` is expensive on large state dicts. Only deep-copy when starting a new workflow from a fixture. Never deep-copy inside a hot loop or per-predicate evaluation.
+
+**No repeated fixture file reads.**
+Load a fixture once per workflow run. Do not call `load_support_fixture` or `load_finance_fixture` inside a loop over benchmark tasks without caching or pre-loading.
+
+**State hash must be deterministic and cheap.**
+Use `json.dumps(..., sort_keys=True, separators=(",", ":"))` + SHA-256. Do not call `model_dump(mode="json")` more than once per hash. Do not hash the full state when only a field subset changed — snapshot the relevant slice.
+
+**Predicate evaluation must be O(k) in the number of predicates.**
+`evaluate_predicates` and `count_forbidden_violations` must not re-scan the full state for each predicate. Shared lookups (refund count, ticket status) may be computed once and passed in when called in batch.
+
+**Eval runner must scale linearly with task count.**
+Do not load all fixtures into memory upfront. Load one fixture per task run. Do not accumulate raw state snapshots across runs in memory — write to `data/results/` and discard.
+
+**No blocking I/O on the hot path after fixture load.**
+All tool calls are synchronous and in-memory. Keep them that way. Do not add network calls, subprocess invocations, or file writes inside `create_refund`, `pay_invoice`, or the action controller decision table.
+
+**LLM calls are the only acceptable slow path.**
+Qwen extraction calls are network-bound and are allowed to be slow. All non-Qwen code must stay within the targets above. If a non-LLM function is slow, it is a bug, not a tradeoff.
+
+### How To Check
+
+Run before marking any hot-path task done:
+
+```bash
+time python scripts/run_demo.py --fixture support_refund_happy_001
+time python scripts/run_eval.py --benchmark data/benchmark/support_demo.jsonl --repeated-runs 5
+```
+
+If either exceeds its target, profile with:
+
+```bash
+python -m cProfile -s cumulative scripts/run_demo.py --fixture support_refund_happy_001 2>&1 | head -30
+```
+
+Fix the bottleneck before marking done. Do not merge code that regresses a passing target.
