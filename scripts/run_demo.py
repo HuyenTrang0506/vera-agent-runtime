@@ -6,6 +6,16 @@ import json
 from app.services.action_controller import run_support_workflow
 
 
+def _completed_refund_count(final_state: dict | None) -> int:
+    if final_state is None:
+        return 0
+    return sum(
+        1
+        for r in final_state.get("refunds", {}).values()
+        if r.get("status") == "completed"
+    )
+
+
 def _run_baseline(fixture_id: str) -> dict:
     from app.eval.baselines import run_description_only_baseline_task
     from app.models.evaluation import BenchmarkTask
@@ -38,14 +48,17 @@ def main() -> None:
 
     if args.compare_baseline:
         baseline = _run_baseline(args.fixture)
+        vera_dump = vera_result.model_dump(mode="json")
         output = {
             "baseline": {
                 "status": baseline.get("status"),
+                "completed_refunds": _completed_refund_count(baseline.get("final_state")),
                 "final_state_match": baseline.get("final_state_match"),
                 "audit_receipts": len(baseline.get("audit_receipt_ids", [])),
             },
             "vera": {
                 "status": vera_result.status,
+                "completed_refunds": _completed_refund_count(vera_dump.get("final_state")),
                 "final_state_match": vera_result.final_state_match,
                 "audit_receipts": len(vera_result.audit_receipts),
             },
