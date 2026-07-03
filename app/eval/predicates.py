@@ -61,14 +61,31 @@ def _create_refund_was_called(result: WorkflowRunResult) -> bool:
 
 _PAY_ID_RE = re.compile(r"payment_id='([^']+)'")
 _STATUS_RE = re.compile(r"^([a-z_.]+\.status)\s*==\s*'([^']+)'$")
-_COUNT_RE = re.compile(r"^count_completed_refunds\(([^)]*)\)\s*==\s*(\d+)$")
+_COUNT_RE = re.compile(r"^count_completed_refunds\(([^)]*)\)\s*(==|!=|>|>=|<|<=)\s*(\d+)$")
 _TOTAL_RE = re.compile(r"^total_refunded_amount\(payment_id='([^']+)'\)\s*==\s*payment\.amount$")
 _REFUND_CALLED_RE = re.compile(r"^create_refund\.called\s*==\s*(true|false)$")
 
+_OPS: dict[str, Any] = {
+    "==": lambda a, b: a == b,
+    "!=": lambda a, b: a != b,
+    ">": lambda a, b: a > b,
+    ">=": lambda a, b: a >= b,
+    "<": lambda a, b: a < b,
+    "<=": lambda a, b: a <= b,
+}
 
-def evaluate_predicate(predicate: str, result: WorkflowRunResult) -> bool:
-    """Return True if predicate holds for the given result. Unknown predicates return True."""
+
+def evaluate_predicate(predicate: str, result: WorkflowRunResult, *, strict: bool = False) -> bool:
+    """Return True if predicate holds for the given result.
+
+    strict=True: unknown predicates return False (use for forbidden checks).
+    strict=False: unknown predicates return True (use for expected checks — give benefit of doubt).
+    """
     p = predicate.strip()
+
+    # compound: split on " and " and evaluate each part
+    if " and " in p:
+        return all(evaluate_predicate(part, result, strict=strict) for part in p.split(" and "))
 
     # workflow.status == 'X'
     if p.startswith("workflow.status"):
@@ -84,14 +101,15 @@ def evaluate_predicate(predicate: str, result: WorkflowRunResult) -> bool:
             return _ticket_status(result.final_state) == m.group(2)
         return True
 
-    # count_completed_refunds(...) == N
+    # count_completed_refunds(...) OP N
     m = _COUNT_RE.match(p)
     if m:
-        args_str, expected_str = m.group(1).strip(), m.group(2)
+        args_str, op_str, expected_str = m.group(1).strip(), m.group(2), m.group(3)
         pid_match = _PAY_ID_RE.search(args_str)
         payment_id = pid_match.group(1) if pid_match else None
         fs = result.final_state or {}
-        return _count_completed_refunds(fs, payment_id) == int(expected_str)
+        actual = _count_completed_refunds(fs, payment_id)
+        return _OPS[op_str](actual, int(expected_str))
 
     # total_refunded_amount(payment_id='X') == payment.amount
     m = _TOTAL_RE.match(p)
@@ -109,9 +127,14 @@ def evaluate_predicate(predicate: str, result: WorkflowRunResult) -> bool:
         expected_called = m.group(1) == "true"
         return _create_refund_was_called(result) == expected_called
 
-    return True
+    return not strict
 
 
 def evaluate_predicates(predicates: list[str], result: WorkflowRunResult) -> bool:
     """Return True if all predicates hold."""
     return all(evaluate_predicate(p, result) for p in predicates)
+
+
+def count_forbidden_violations(predicates: list[str], result: WorkflowRunResult) -> int:
+    """Return number of forbidden predicates that hold (i.e. violations)."""
+    return sum(1 for p in predicates if evaluate_predicate(p, result, strict=True))

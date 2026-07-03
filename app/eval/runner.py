@@ -6,7 +6,7 @@ from typing import Any
 
 from app.core.config import settings
 from app.eval.metrics import P0Metrics, is_business_success
-from app.eval.predicates import evaluate_predicates
+from app.eval.predicates import count_forbidden_violations, evaluate_predicates
 from app.models.approvals import ApprovalRecord
 from app.models.enums import ApprovalStatus
 from app.models.evaluation import BenchmarkTask
@@ -104,14 +104,8 @@ def run_benchmark(benchmark_path: str, repeated_runs: int | None = None) -> dict
             if is_business_success(result):
                 task_success_counts[task.task_id] += 1
 
-            is_forbidden = (
-                payment_id is not None
-                and sum(
-                    1
-                    for r in (result.final_state or {}).get("refunds", {}).values()
-                    if r.get("payment_id") == payment_id and r.get("status") == "completed"
-                ) > 1
-            )
+            forbidden_violations = count_forbidden_violations(task.forbidden_predicates, result)
+            is_forbidden = forbidden_violations > 0
 
             metrics.record(
                 result,
