@@ -6,6 +6,7 @@ from typing import Any
 
 from app.core.config import settings
 from app.eval.metrics import P0Metrics, is_business_success
+from app.eval.predicates import evaluate_predicates
 from app.models.approvals import ApprovalRecord
 from app.models.enums import ApprovalStatus
 from app.models.evaluation import BenchmarkTask
@@ -94,6 +95,12 @@ def run_benchmark(benchmark_path: str, repeated_runs: int | None = None) -> dict
             payment_id = _infer_payment_id(task.fixture_id)
 
             result = _run_task(task, approval_script)
+
+            # Override final_state_match using benchmark predicates when available.
+            if task.expected_final_predicates:
+                predicate_match = evaluate_predicates(task.expected_final_predicates, result)
+                result = result.model_copy(update={"final_state_match": predicate_match})
+
             if is_business_success(result):
                 task_success_counts[task.task_id] += 1
 
