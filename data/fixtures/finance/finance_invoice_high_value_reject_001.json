@@ -1,0 +1,29 @@
+{
+  "fixture_id": "finance_invoice_high_value_reject_001",
+  "failure_mode": "success",
+  "expected_invoice_id": "inv_hv_001",
+  "expected_duplicate_invoice_id": null,
+  "state": {
+    "vendors": {
+      "vendor_globex": {
+        "vendor_id": "vendor_globex",
+        "name": "Globex Corporation",
+        "status": "active",
+        "approved_bank_account": "globex-bank-001"
+      }
+    },
+    "invoices": {
+      "inv_hv_001": {
+        "invoice_id": "inv_hv_001",
+        "vendor_id": "vendor_globex",
+        "amount": 8500.00,
+        "currency": "USD",
+        "status": "validated",
+        "reference_number": "GLOBEX-2026-0702",
+        "duplicate_of": null,
+        "idempotency_key": null
+      }
+    },
+    "payments": {}
+  }
+}

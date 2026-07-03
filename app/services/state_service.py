@@ -8,6 +8,7 @@ from typing import Any
 from pydantic import BaseModel
 
 from app.core.config import settings
+from app.models.finance import FinanceFixture
 from app.models.state import SupportFixture, SupportState
 from app.models.workflow import WorkflowRunResult
 
@@ -36,6 +37,19 @@ def load_support_fixture(fixture: str | Path) -> SupportFixture:
     path = support_fixture_path(fixture)
     payload = load_fixture(path)
     return SupportFixture.model_validate(payload)
+
+
+def finance_fixture_path(fixture: str | Path) -> Path:
+    path = Path(fixture)
+    if path.suffix == ".json" or path.exists():
+        return path
+    return Path(settings.fixtures_dir) / "finance" / f"{fixture}.json"
+
+
+def load_finance_fixture(fixture: str | Path) -> FinanceFixture:
+    path = finance_fixture_path(fixture)
+    payload = load_fixture(path)
+    return FinanceFixture.model_validate(payload)
 
 
 def runtime_state_from_fixture(fixture: SupportFixture) -> SupportState:

@@ -1,0 +1,48 @@
+{
+  "fixture_id": "finance_invoice_duplicate_001",
+  "failure_mode": "success",
+  "expected_invoice_id": "inv_002_dup",
+  "expected_duplicate_invoice_id": "inv_001_orig",
+  "state": {
+    "vendors": {
+      "vendor_acme": {
+        "vendor_id": "vendor_acme",
+        "name": "Acme Supplies Ltd",
+        "status": "active",
+        "approved_bank_account": "acme-bank-001"
+      }
+    },
+    "invoices": {
+      "inv_001_orig": {
+        "invoice_id": "inv_001_orig",
+        "vendor_id": "vendor_acme",
+        "amount": 1200.00,
+        "currency": "USD",
+        "status": "paid",
+        "reference_number": "ACME-2026-0701",
+        "duplicate_of": null,
+        "idempotency_key": "inv_inv_001_orig_1200.00"
+      },
+      "inv_002_dup": {
+        "invoice_id": "inv_002_dup",
+        "vendor_id": "vendor_acme",
+        "amount": 1200.00,
+        "currency": "USD",
+        "status": "received",
+        "reference_number": "ACME-2026-0701",
+        "duplicate_of": "inv_001_orig",
+        "idempotency_key": null
+      }
+    },
+    "payments": {
+      "fpay_orig": {
+        "payment_id": "fpay_orig",
+        "invoice_id": "inv_001_orig",
+        "vendor_id": "vendor_acme",
+        "amount": 1200.00,
+        "status": "completed",
+        "idempotency_key": "inv_inv_001_orig_1200.00"
+      }
+    }
+  }
+}
