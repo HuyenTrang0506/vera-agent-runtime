@@ -178,6 +178,38 @@ def update_ticket_to_mismatch_escalation(
     return TicketUpdateResult(success=True, ticket=ticket)
 
 
+def correct_ticket_status(
+    state: SupportState,
+    ticket_id: str,
+    new_status: TicketStatus,
+    operator_note: str,
+) -> TicketUpdateResult:
+    """Non-financial compensating action: operator corrects ticket status post-incident."""
+    ticket = lookup_ticket(state, ticket_id)
+    if ticket is None:
+        return TicketUpdateResult(success=False, error="ticket_not_found")
+
+    correctable_from = {
+        TicketStatus.ESCALATED_STATE_MISMATCH,
+        TicketStatus.PENDING_MANUAL_REVIEW,
+        TicketStatus.PENDING_CUSTOMER_FOLLOWUP,
+    }
+    if ticket.status not in correctable_from:
+        return TicketUpdateResult(success=False, error=f"ticket_status_not_correctable: {ticket.status}")
+
+    correctable_to = {
+        TicketStatus.RESOLVED,
+        TicketStatus.PENDING_CUSTOMER_FOLLOWUP,
+        TicketStatus.PENDING_MANUAL_REVIEW,
+    }
+    if new_status not in correctable_to:
+        return TicketUpdateResult(success=False, error=f"target_status_not_allowed: {new_status}")
+
+    ticket.status = new_status
+    ticket.response_draft = operator_note
+    return TicketUpdateResult(success=True, ticket=ticket)
+
+
 def resolve_ticket_with_completed_refund(
     state: SupportState,
     ticket_id: str,
