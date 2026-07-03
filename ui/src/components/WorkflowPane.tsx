@@ -80,7 +80,7 @@ export function WorkflowPane({
         </label>
         <button onClick={onRun} disabled={isRunning} type="button">
           {isRunning ? <RefreshCw className="spin" size={18} /> : <Play size={18} />}
-          {isRunning ? "Running" : "Run SafeFlow"}
+          {isRunning ? "Running" : "Run VERA"}
         </button>
         {error && <div className="inline-error">{error}</div>}
       </section>

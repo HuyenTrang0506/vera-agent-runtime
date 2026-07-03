@@ -28,7 +28,7 @@ export function BenchmarkPane({ evalResult, isRunning, error, onRun }: Props) {
           <BarChart2 size={18} />
           Benchmark Evaluation
         </div>
-        <p className="muted-sm">Run SafeFlow on all benchmark cases and view aggregate metrics.</p>
+        <p className="muted-sm">Run VERA on all benchmark cases and view aggregate metrics vs baseline.</p>
         <button onClick={onRun} disabled={isRunning} type="button" className="btn-bench">
           {isRunning ? <RefreshCw className="spin" size={18} /> : <Play size={18} />}
           {isRunning ? "Running benchmark…" : "Run benchmark"}

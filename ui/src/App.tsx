@@ -46,7 +46,7 @@ function App() {
       if (!res.ok) throw new Error(`Workflow request failed with ${res.status}`);
       setResult((await res.json()) as WorkflowResult);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not reach SafeFlow API.");
+      setError(err instanceof Error ? err.message : "Could not reach VERA API.");
     } finally {
       setIsRunning(false);
     }
@@ -65,7 +65,7 @@ function App() {
       if (!res.ok) throw new Error(`Evaluation failed with ${res.status}`);
       setEvalResult((await res.json()) as EvalResult);
     } catch (err) {
-      setEvalError(err instanceof Error ? err.message : "Could not reach SafeFlow API.");
+      setEvalError(err instanceof Error ? err.message : "Could not reach VERA API.");
     } finally {
       setIsEvalRunning(false);
     }
@@ -95,7 +95,7 @@ function App() {
       <section className="topbar">
         <div>
           <p className="eyebrow">Qwen Enterprise Autopilot</p>
-          <h1>SafeFlow Operator Console</h1>
+          <h1>VERA Operator Console</h1>
         </div>
         <div className="topbar-right">
           <div className="tab-bar">
