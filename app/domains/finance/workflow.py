@@ -5,7 +5,11 @@ Mirrors the support action_controller pattern:
   → validate state → audit receipt
 """
 
+from pathlib import Path
+
+from app.core.executor import ToolExecutor
 from app.core.ids import new_id
+from app.core.registry import load_tool_registry
 from app.domains.finance.policies import (
     P_HIGH_VALUE_INVOICE_APPROVAL,
     P_INVOICE_ALREADY_PAID,
@@ -17,6 +21,7 @@ from app.domains.finance.tools import (
     find_duplicate_invoice,
     hold_invoice,
     mark_invoice_duplicate,
+    observe_invoice_transitions,
     pay_invoice,
 )
 from app.models.approvals import ApprovalRecord
@@ -34,10 +39,17 @@ from app.services.state_service import (
     state_hash,
 )
 
+_REGISTRY = load_tool_registry(
+    Path(__file__).parent.parent.parent / "registries" / "finance_tools.yaml"
+)
+_PAY_EXECUTOR = ToolExecutor(
+    metadata=_REGISTRY["pay_invoice"],
+    tool_fn=pay_invoice,
+    observe_fn=observe_invoice_transitions,
+)
+
 
 def _evaluate_invoice_policy(state, invoice_id: str) -> PolicyResult:
-    from app.models.policies import PolicyResult
-
     invoice = state.invoices.get(invoice_id)
     if invoice is None:
         return PolicyResult(
@@ -241,75 +253,44 @@ def run_finance_workflow(
             save_workflow_result(result)
             return result
 
-    # Execute payment
+    # Execute payment via generic executor
     invoice = state.invoices[invoice_id]
     idempotency_key = f"inv_{invoice_id}_{invoice.amount:.2f}"
-    approval_id = approval_record.approval_id if approval_record else None
 
-    pre_hash = state_hash(state)
-    pay_result = pay_invoice(
-        state,
-        invoice_id=invoice_id,
-        idempotency_key=idempotency_key,
+    exec_result = _PAY_EXECUTOR.run(
+        workflow_id=workflow_id,
+        state=state,
+        params={"invoice_id": invoice_id, "idempotency_key": idempotency_key},
         failure_mode=fixture.failure_mode,
+        policy_decision=policy.decision,
     )
-    post_hash = state_hash(state)
 
-    if not pay_result.success and pay_result.error != "timeout_after_commit":
-        receipt = build_receipt(
-            workflow_id=workflow_id,
-            action_id="pay_invoice",
-            intended_transition="T_INVOICE_PAY",
-            observed_transition="none",
-            policy_decision=PolicyDecision.ALLOW,
-            pre_state_hash=pre_hash,
-            post_state_hash=post_hash,
-            outcome="failed",
-        )
+    # Hard failure
+    if not exec_result.committed:
         result = WorkflowRunResult(
             workflow_id=workflow_id,
             status=WorkflowStatus.FAILED_SAFE,
             desired_transition_id="T_INVOICE_PAY",
             policy_decision=PolicyDecision.ALLOW,
             final_state_match=False,
-            audit_receipt_ids=[receipt.receipt_id],
-            audit_receipts=[receipt],
-            message=pay_result.error,
+            audit_receipt_ids=[exec_result.receipt.receipt_id] if exec_result.receipt else [],
+            audit_receipts=[exec_result.receipt] if exec_result.receipt else [],
+            message=exec_result.error,
         )
         result.timeline_events = [timeline_event_from_receipt(r) for r in result.audit_receipts]
         save_workflow_result(result)
         return result
 
-    recovered_timeout = pay_result.error == "timeout_after_commit"
-    outcome = "recovered" if recovered_timeout else "success"
-
-    # Verify payment committed
-    final_invoice = state.invoices.get(invoice_id)
-    paid_correctly = (
-        final_invoice is not None
-        and final_invoice.status == InvoiceStatus.PAID
-        and find_completed_payment_for_invoice(state, invoice_id) is not None
-    )
-
-    if not paid_correctly and not recovered_timeout:
-        receipt = build_receipt(
-            workflow_id=workflow_id,
-            action_id="pay_invoice",
-            intended_transition="T_INVOICE_PAY",
-            observed_transition="none",
-            policy_decision=PolicyDecision.ALLOW,
-            pre_state_hash=pre_hash,
-            post_state_hash=post_hash,
-            outcome="escalated",
-        )
+    # State mismatch escalation
+    if exec_result.receipt and exec_result.receipt.outcome == "escalated":
         result = WorkflowRunResult(
             workflow_id=workflow_id,
             status=WorkflowStatus.ESCALATED_STATE_MISMATCH,
             desired_transition_id="T_INVOICE_PAY",
             policy_decision=PolicyDecision.ALLOW,
             final_state_match=False,
-            audit_receipt_ids=[receipt.receipt_id],
-            audit_receipts=[receipt],
+            audit_receipt_ids=[exec_result.receipt.receipt_id],
+            audit_receipts=[exec_result.receipt],
             final_state=snapshot_state(state),
             message="Invoice payment reported success but invoice state was not updated.",
         )
@@ -317,16 +298,21 @@ def run_finance_workflow(
         save_workflow_result(result)
         return result
 
-    receipt = build_receipt(
-        workflow_id=workflow_id,
-        action_id=pay_result.payment.payment_id if pay_result.payment else "pay_invoice",
-        intended_transition="T_INVOICE_PAY",
-        observed_transition="T_INVOICE_PAY",
-        policy_decision=policy.decision,
-        pre_state_hash=pre_hash,
-        post_state_hash=post_hash,
-        outcome=outcome,
-    )
+    # timeout_after_commit but state not confirmed
+    if not exec_result.success and exec_result.committed:
+        result = WorkflowRunResult(
+            workflow_id=workflow_id,
+            status=WorkflowStatus.FAILED_SAFE,
+            desired_transition_id="T_INVOICE_PAY",
+            policy_decision=PolicyDecision.ALLOW,
+            final_state_match=False,
+            audit_receipt_ids=[exec_result.receipt.receipt_id] if exec_result.receipt else [],
+            audit_receipts=[exec_result.receipt] if exec_result.receipt else [],
+            message="Timeout-after-commit recovery could not confirm payment.",
+        )
+        result.timeline_events = [timeline_event_from_receipt(r) for r in result.audit_receipts]
+        save_workflow_result(result)
+        return result
 
     final_state = snapshot_state(state)
     count_paid = sum(
@@ -337,7 +323,7 @@ def run_finance_workflow(
 
     status = (
         WorkflowStatus.COMPLETED_WITH_RECOVERED_TIMEOUT
-        if recovered_timeout
+        if exec_result.recovered_timeout
         else WorkflowStatus.COMPLETED
     )
     result = WorkflowRunResult(
@@ -346,12 +332,12 @@ def run_finance_workflow(
         desired_transition_id="T_INVOICE_PAY",
         policy_decision=policy.decision,
         final_state_match=final_state_match,
-        audit_receipt_ids=[receipt.receipt_id],
-        audit_receipts=[receipt],
+        audit_receipt_ids=[exec_result.receipt.receipt_id] if exec_result.receipt else [],
+        audit_receipts=[exec_result.receipt] if exec_result.receipt else [],
         final_state=final_state,
         message=(
             f"Invoice {invoice_id} paid once. Timeout-after-commit recovered by state recheck."
-            if recovered_timeout
+            if exec_result.recovered_timeout
             else f"Invoice {invoice_id} paid once. Vendor: {invoice.vendor_id}."
         ),
     )

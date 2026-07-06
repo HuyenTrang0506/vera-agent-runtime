@@ -1,0 +1,26 @@
+pay_invoice:
+  description: "Pay an invoice to a vendor for goods or services rendered."
+  input_schema:
+    invoice_id: string
+    idempotency_key: string
+    approval_id: string|null
+  preconditions:
+    - invoice_exists
+    - invoice_is_not_duplicate
+    - invoice_not_already_paid
+    - vendor_is_active
+    - no_existing_completed_payment
+    - approval_present_if_high_value
+  transition_effects:
+    - T_INVOICE_PAY
+  side_effects:
+    - financial_payment
+  reversibility: irreversible
+  risk_level: high
+  idempotency_required: true
+  approval_required_when:
+    - invoice_amount_gte_5000
+  failure_modes:
+    - success
+    - timeout_before_commit
+    - timeout_after_commit

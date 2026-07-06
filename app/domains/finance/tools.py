@@ -136,3 +136,20 @@ def hold_invoice(state: FinanceState, invoice_id: str, reason: str) -> InvoiceUp
         )
     invoice.status = InvoiceStatus.ON_HOLD
     return InvoiceUpdateResult(success=True, invoice=invoice)
+
+
+def observe_invoice_transitions(
+    pre_state: dict, post_state: FinanceState, ctx: dict
+) -> list[str]:
+    invoice_id = ctx["invoice_id"]
+    pre_payment_ids = set(pre_state.get("payments", {}).keys())
+    observed = []
+    for pid, p in post_state.payments.items():
+        if (
+            pid not in pre_payment_ids
+            and p.invoice_id == invoice_id
+            and p.status == FinancePaymentStatus.COMPLETED
+        ):
+            observed.append("T_INVOICE_PAY")
+            break
+    return observed

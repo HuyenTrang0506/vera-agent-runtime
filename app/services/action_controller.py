@@ -3,7 +3,11 @@
 This module owns the P0 decision table. Keep domain tool internals out of here.
 """
 
+from pathlib import Path
+
+from app.core.executor import ToolExecutor
 from app.core.ids import new_id
+from app.core.registry import load_tool_registry
 from app.domains.support.tools import (
     create_refund,
     find_duplicate_payment_for_order,
@@ -21,7 +25,6 @@ from app.services.audit_service import build_receipt, timeline_event_from_receip
 from app.services.idempotency_service import refund_idempotency_key
 from app.services.policy_service import evaluate_refund_policy
 from app.services.qwen_service import extract_support_request
-from app.services.recovery_service import should_recheck_state
 from app.services.state_service import (
     load_support_fixture,
     runtime_state_from_fixture,
@@ -29,7 +32,18 @@ from app.services.state_service import (
     snapshot_state,
     state_hash,
 )
-from app.services.transition_service import validate_refund_transition
+from app.services.transition_service import observe_refund_transitions
+
+_REGISTRY = load_tool_registry(
+    Path(__file__).parent.parent / "registries" / "support_tools.yaml"
+)
+_REFUND_EXECUTOR = ToolExecutor(
+    metadata=_REGISTRY["create_refund"],
+    tool_fn=create_refund,
+    observe_fn=lambda pre, post, ctx: observe_refund_transitions(
+        pre, post, ctx["payment_id"], ctx["amount"]
+    ),
+)
 
 
 def _run_support_workflow(
@@ -219,129 +233,91 @@ def _run_support_workflow(
 
     # Execute refund (allow or approved)
     approval_id = approval_record.approval_id if approval_record is not None else None
-
-    pre_state = snapshot_state(state)
-    pre_refund_hash = state_hash(pre_state)
     idempotency_key = refund_idempotency_key(
         duplicate_payment.payment_id, duplicate_payment.amount
     )
-    refund_result = create_refund(
-        state,
-        payment_id=duplicate_payment.payment_id,
-        amount=duplicate_payment.amount,
-        idempotency_key=idempotency_key,
-        approval_id=approval_id,
+
+    exec_result = _REFUND_EXECUTOR.run(
+        workflow_id=workflow_id,
+        state=state,
+        params={
+            "payment_id": duplicate_payment.payment_id,
+            "amount": duplicate_payment.amount,
+            "idempotency_key": idempotency_key,
+            "approval_id": approval_id,
+        },
         failure_mode=fixture.failure_mode,
+        policy_decision=policy.decision,
     )
-    recovered_timeout = False
-    if not refund_result.success and should_recheck_state(refund_result.error or ""):
-        recovered_timeout = True
-    elif not refund_result.success:
-        err_hash = state_hash(state)
-        err_receipt = build_receipt(
-            workflow_id=workflow_id,
-            action_id="create_refund",
-            intended_transition="T_REFUND_CREATE",
-            observed_transition="none",
-            policy_decision=policy.decision,
-            pre_state_hash=pre_refund_hash,
-            post_state_hash=err_hash,
-            outcome="failed",
-        )
+
+    # Hard failure — tool errored and nothing committed
+    if not exec_result.committed:
         return WorkflowRunResult(
             workflow_id=workflow_id,
             status=WorkflowStatus.FAILED_SAFE,
             desired_transition_id=extraction.desired_transition.transition_id,
             policy_decision=policy.decision,
             final_state_match=False,
-            audit_receipt_ids=[err_receipt.receipt_id],
-            audit_receipts=[err_receipt],
-            message=refund_result.error,
+            audit_receipt_ids=[exec_result.receipt.receipt_id] if exec_result.receipt else [],
+            audit_receipts=[exec_result.receipt] if exec_result.receipt else [],
+            message=exec_result.error,
         )
-    post_refund_hash = state_hash(state)
 
-    validation = validate_refund_transition(
-        pre_state,
-        state,
-        payment_id=duplicate_payment.payment_id,
-        amount=duplicate_payment.amount,
-    )
-
-    # UC5: state mismatch escalation
-    if not validation.matches and not recovered_timeout:
+    # UC5: state mismatch escalation (committed but transitions not observed)
+    if exec_result.receipt and exec_result.receipt.outcome == "escalated":
         ticket = find_ticket_for_order(state, order_id)
         if ticket is not None:
             update_ticket_to_mismatch_escalation(state, ticket_id=ticket.ticket_id)
-        mismatch_receipt = build_receipt(
-            workflow_id=workflow_id,
-            action_id=refund_result.refund.refund_id if refund_result.refund else "create_refund",
-            intended_transition="T_REFUND_CREATE,T_PAYMENT_REFUNDED_AMOUNT",
-            observed_transition=",".join(validation.observed_transition_ids) or "none",
-            policy_decision=policy.decision,
-            pre_state_hash=pre_refund_hash,
-            post_state_hash=post_refund_hash,
-            outcome="escalated",
-        )
+        expected = _REGISTRY["create_refund"].transition_effects
         return WorkflowRunResult(
             workflow_id=workflow_id,
             status=WorkflowStatus.ESCALATED_STATE_MISMATCH,
             desired_transition_id=extraction.desired_transition.transition_id,
             policy_decision=policy.decision,
             final_state_match=False,
-            audit_receipt_ids=[mismatch_receipt.receipt_id],
-            audit_receipts=[mismatch_receipt],
+            audit_receipt_ids=[exec_result.receipt.receipt_id],
+            audit_receipts=[exec_result.receipt],
             final_state=snapshot_state(state),
             mismatch_detail={
-                "expected_delta": validation.expected_delta,
-                "observed_delta": validation.observed_delta,
+                "expected_delta": {"transitions": expected},
+                "observed_delta": {"transitions": exec_result.observed_transitions},
             },
-            message=validation.reason,
+            message=f"Missing expected transitions: {[t for t in expected if t not in exec_result.observed_transitions]}",
         )
 
-    if not validation.matches and recovered_timeout:
-        timeout_receipt = build_receipt(
-            workflow_id=workflow_id,
-            action_id=refund_result.refund.refund_id if refund_result.refund else "create_refund",
-            intended_transition="T_REFUND_CREATE",
-            observed_transition="none",
-            policy_decision=policy.decision,
-            pre_state_hash=pre_refund_hash,
-            post_state_hash=post_refund_hash,
-            outcome="failed",
-        )
+    # timeout_after_commit but state not confirmed — failed safe
+    if not exec_result.success and exec_result.committed:
         return WorkflowRunResult(
             workflow_id=workflow_id,
             status=WorkflowStatus.FAILED_SAFE,
             desired_transition_id=extraction.desired_transition.transition_id,
             policy_decision=policy.decision,
             final_state_match=False,
-            audit_receipt_ids=[timeout_receipt.receipt_id],
-            audit_receipts=[timeout_receipt],
+            audit_receipt_ids=[exec_result.receipt.receipt_id] if exec_result.receipt else [],
+            audit_receipts=[exec_result.receipt] if exec_result.receipt else [],
             message="Timeout-after-commit recovery could not find committed refund.",
         )
 
-    refund_outcome = "recovered" if recovered_timeout else "success"
-    refund_receipt = build_receipt(
-        workflow_id=workflow_id,
-        action_id=refund_result.refund.refund_id if refund_result.refund else "create_refund",
-        intended_transition="T_REFUND_CREATE,T_PAYMENT_REFUNDED_AMOUNT",
-        observed_transition=",".join(validation.observed_transition_ids),
-        policy_decision=policy.decision,
-        pre_state_hash=pre_refund_hash,
-        post_state_hash=post_refund_hash,
-        outcome=refund_outcome,
-    )
+    refund_receipt = exec_result.receipt
+
+    # Find refund id from state for ticket resolution
+    refund_id = None
+    pre_refunds = set()  # executor already ran, find new refund in state
+    for rid, r in state.refunds.items():
+        if r.payment_id == duplicate_payment.payment_id:
+            refund_id = rid
+            break
 
     ticket = find_ticket_for_order(state, order_id)
-    if ticket is None or refund_result.refund is None:
+    if ticket is None or refund_id is None:
         return WorkflowRunResult(
             workflow_id=workflow_id,
             status=WorkflowStatus.FAILED_SAFE,
             desired_transition_id=extraction.desired_transition.transition_id,
             policy_decision=policy.decision,
             final_state_match=False,
-            audit_receipt_ids=[refund_receipt.receipt_id],
-            audit_receipts=[refund_receipt],
+            audit_receipt_ids=[refund_receipt.receipt_id] if refund_receipt else [],
+            audit_receipts=[refund_receipt] if refund_receipt else [],
             message="Cannot resolve ticket because ticket or refund is missing.",
         )
 
@@ -349,7 +325,7 @@ def _run_support_workflow(
     ticket_update = resolve_ticket_with_completed_refund(
         state,
         ticket_id=ticket.ticket_id,
-        refund_id=refund_result.refund.refund_id,
+        refund_id=refund_id,
     )
     if not ticket_update.success:
         return WorkflowRunResult(
@@ -372,24 +348,25 @@ def _run_support_workflow(
         post_state_hash=post_ticket_hash,
         outcome="success",
     )
-    audit_receipts = [refund_receipt, ticket_receipt]
+    audit_receipts = [r for r in [refund_receipt, ticket_receipt] if r is not None]
+    reason = "Observed transition matched expected transition."
 
     return WorkflowRunResult(
         workflow_id=workflow_id,
         status=WorkflowStatus.COMPLETED_WITH_RECOVERED_TIMEOUT
-        if recovered_timeout
+        if exec_result.recovered_timeout
         else WorkflowStatus.COMPLETED,
         desired_transition_id=extraction.desired_transition.transition_id,
         policy_decision=policy.decision,
         final_state_match=True,
-        audit_receipt_ids=[receipt.receipt_id for receipt in audit_receipts],
+        audit_receipt_ids=[r.receipt_id for r in audit_receipts],
         audit_receipts=audit_receipts,
         final_state=snapshot_state(state),
         message=(
-            f"{validation.reason} Timeout-after-commit recovered by state recheck. "
+            f"{reason} Timeout-after-commit recovered by state recheck. "
             "Ticket resolved and response drafted."
-            if recovered_timeout
-            else f"{validation.reason} Ticket resolved and response drafted."
+            if exec_result.recovered_timeout
+            else f"{reason} Ticket resolved and response drafted."
         ),
     )
 

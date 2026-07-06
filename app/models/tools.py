@@ -12,5 +12,7 @@ class ToolMetadata(BaseModel):
     reversibility: str
     risk_level: str
     idempotency_required: bool = False
+    approval_required_when: list[str] = Field(default_factory=list)
     failure_modes: list[str] = Field(default_factory=list)
+    input_schema: dict = Field(default_factory=dict)
 
