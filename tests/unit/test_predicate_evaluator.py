@@ -150,6 +150,37 @@ class TestCreateRefundCalled:
         assert evaluate_predicate("create_refund.called == false", r) is False
 
 
+class TestCountCompletedFinancePayments:
+    def _finance_state(self, invoice_id: str, status: str = "completed") -> dict:
+        return {
+            "payments": {
+                "fpay_001": {"invoice_id": invoice_id, "status": status},
+            },
+            "refunds": {},
+            "tickets": {},
+        }
+
+    def test_one_completed_payment_equals_one(self):
+        r = _make_result(final_state=self._finance_state("inv_001"))
+        assert evaluate_predicate("count_completed_finance_payments(invoice_id='inv_001') == 1", r) is True
+
+    def test_zero_payments_for_invoice(self):
+        r = _make_result(final_state=self._finance_state("inv_other"))
+        assert evaluate_predicate("count_completed_finance_payments(invoice_id='inv_001') == 0", r) is True
+
+    def test_forbidden_gt_zero_fires_when_paid(self):
+        r = _make_result(final_state=self._finance_state("inv_002_dup"))
+        assert evaluate_predicate("count_completed_finance_payments(invoice_id='inv_002_dup') > 0", r) is True
+
+    def test_pending_payment_not_counted(self):
+        r = _make_result(final_state=self._finance_state("inv_001", status="pending"))
+        assert evaluate_predicate("count_completed_finance_payments(invoice_id='inv_001') == 1", r) is False
+
+    def test_no_final_state_returns_zero(self):
+        r = _make_result(final_state=None)
+        assert evaluate_predicate("count_completed_finance_payments(invoice_id='inv_001') == 0", r) is True
+
+
 class TestEvalAllPredicates:
     def test_all_pass(self):
         fs = _make_final_state(
