@@ -11,11 +11,16 @@ from app.domains.support.tools import (
     resolve_ticket_with_completed_refund,
 )
 from app.eval.metrics import P0Metrics, is_business_success
-from app.eval.predicates import count_forbidden_violations
+from app.eval.predicates import count_forbidden_violations, evaluate_predicates
 from app.models.evaluation import BenchmarkTask
 from app.models.workflow import WorkflowRunResult
 from app.services.idempotency_service import refund_idempotency_key
-from app.services.state_service import load_support_fixture, runtime_state_from_fixture, snapshot_state
+from app.services.state_service import (
+    load_finance_fixture,
+    load_support_fixture,
+    runtime_state_from_fixture,
+    snapshot_state,
+)
 
 
 def _load_task_rows(benchmark_path: str) -> list[dict[str, Any]]:
@@ -175,5 +180,103 @@ def run_description_only_baseline(
         "repeated_runs": repeated_runs,
         "pass_k": round(pass_k, 4),
         "metrics": metrics.summary(),
+        "tasks": task_results,
+    }
+
+
+def run_finance_baseline_task(task: BenchmarkTask, raw: dict[str, Any]) -> WorkflowRunResult:
+    """Naive finance baseline: call pay_invoice directly, no policy, no approval gate, no audit."""
+    from app.domains.finance.tools import pay_invoice
+
+    fixture = load_finance_fixture(task.fixture_id)
+    state = fixture.state.model_copy(deep=True)
+    invoice_id = raw.get("invoice_id") or ""
+    idempotency_key = f"base_inv_{invoice_id}"
+
+    pay_result = pay_invoice(state, invoice_id=invoice_id, idempotency_key=idempotency_key)
+    status = "completed" if pay_result.success else "failed_safe"
+
+    return WorkflowRunResult(
+        workflow_id=f"base_{task.task_id}",
+        status=status,
+        desired_transition_id="T_INVOICE_PAY",
+        policy_decision=None,
+        final_state_match=pay_result.success,
+        audit_receipt_ids=[],
+        final_state=snapshot_state(state),
+        message="Finance description-only baseline: no policy, no approval gate, no audit.",
+    )
+
+
+def run_finance_description_only_baseline(
+    benchmark_path: str,
+    repeated_runs: int = 1,
+) -> dict[str, Any]:
+    if repeated_runs < 1:
+        raise ValueError("repeated_runs must be at least 1")
+
+    task_rows = _load_task_rows(benchmark_path)
+    tasks = [BenchmarkTask.model_validate(row) for row in task_rows]
+    task_results: list[dict[str, Any]] = []
+    task_success_counts: dict[str, int] = {task.task_id: 0 for task in tasks}
+
+    total_runs = 0
+    fsm_count = 0
+    forbidden_violation_count = 0
+    audit_complete_count = 0
+
+    for _run_index in range(repeated_runs):
+        for task, raw in zip(tasks, task_rows, strict=True):
+            result = run_finance_baseline_task(task, raw)
+            fsm = evaluate_predicates(task.expected_final_predicates, result)
+            result = result.model_copy(update={"final_state_match": fsm})
+            forbidden_violations = count_forbidden_violations(task.forbidden_predicates, result)
+
+            if fsm and forbidden_violations == 0:
+                task_success_counts[task.task_id] += 1
+
+            total_runs += 1
+            if fsm:
+                fsm_count += 1
+            forbidden_violation_count += forbidden_violations
+            # baseline never emits audit receipts → audit_completeness = 0
+
+            task_results.append(
+                {
+                    "run_index": _run_index,
+                    "task_id": task.task_id,
+                    "fixture_id": task.fixture_id,
+                    "status": result.status,
+                    "final_state_match": fsm,
+                    "forbidden_violations": forbidden_violations,
+                    "audit_receipts": 0,
+                }
+            )
+
+    num_tasks = len(tasks)
+    pass_k = (
+        round(
+            sum(1 for c in task_success_counts.values() if c == repeated_runs) / num_tasks, 4
+        )
+        if num_tasks
+        else 0.0
+    )
+
+    return {
+        "baseline": "finance_description_schema_only",
+        "benchmark_path": benchmark_path,
+        "repeated_runs": repeated_runs,
+        "pass_k": pass_k,
+        "metrics": {
+            "total_tasks": total_runs,
+            "task_count": num_tasks,
+            "business_task_success_rate": round(
+                sum(1 for t in task_results if t["final_state_match"] and t["forbidden_violations"] == 0) / total_runs,
+                4,
+            ) if total_runs else 0.0,
+            "final_state_exact_match_rate": round(fsm_count / total_runs, 4) if total_runs else 0.0,
+            "forbidden_violation_count": forbidden_violation_count,
+            "audit_completeness_rate": 0.0,
+        },
         "tasks": task_results,
     }

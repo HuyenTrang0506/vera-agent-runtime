@@ -51,6 +51,15 @@ def _ticket_status(final_state: dict[str, Any]) -> str | None:
     return next(iter(tickets.values())).get("status")
 
 
+def _count_completed_finance_payments(final_state: dict[str, Any], invoice_id: str) -> int:
+    payments: dict[str, Any] = final_state.get("payments", {})
+    return sum(
+        1
+        for p in payments.values()
+        if p.get("invoice_id") == invoice_id and p.get("status") == "completed"
+    )
+
+
 def _create_refund_was_called(result: WorkflowRunResult) -> bool:
     return any(
         "create_refund" in r.action_id
@@ -60,8 +69,10 @@ def _create_refund_was_called(result: WorkflowRunResult) -> bool:
 
 
 _PAY_ID_RE = re.compile(r"payment_id='([^']+)'")
+_INV_ID_RE = re.compile(r"invoice_id='([^']+)'")
 _STATUS_RE = re.compile(r"^([a-z_.]+\.status)\s*==\s*'([^']+)'$")
 _COUNT_RE = re.compile(r"^count_completed_refunds\(([^)]*)\)\s*(==|!=|>|>=|<|<=)\s*(\d+)$")
+_FINANCE_PAY_RE = re.compile(r"^count_completed_finance_payments\(invoice_id='([^']+)'\)\s*(==|!=|>|>=|<|<=)\s*(\d+)$")
 _TOTAL_RE = re.compile(r"^total_refunded_amount\(payment_id='([^']+)'\)\s*==\s*payment\.amount$")
 _REFUND_CALLED_RE = re.compile(r"^create_refund\.called\s*==\s*(true|false)$")
 
@@ -109,6 +120,14 @@ def evaluate_predicate(predicate: str, result: WorkflowRunResult, *, strict: boo
         payment_id = pid_match.group(1) if pid_match else None
         fs = result.final_state or {}
         actual = _count_completed_refunds(fs, payment_id)
+        return _OPS[op_str](actual, int(expected_str))
+
+    # count_completed_finance_payments(invoice_id='X') OP N
+    m = _FINANCE_PAY_RE.match(p)
+    if m:
+        invoice_id, op_str, expected_str = m.group(1), m.group(2), m.group(3)
+        fs = result.final_state or {}
+        actual = _count_completed_finance_payments(fs, invoice_id)
         return _OPS[op_str](actual, int(expected_str))
 
     # total_refunded_amount(payment_id='X') == payment.amount
