@@ -48,6 +48,7 @@ def main() -> None:
     parser.add_argument("--benchmark", required=True, help="Path to JSONL benchmark file")
     parser.add_argument("--repeated-runs", type=int, default=None)
     parser.add_argument("--include-baseline", action="store_true")
+    parser.add_argument("--report", action="store_true", help="Print ASCII comparison table instead of JSON")
     parser.add_argument(
         "--domain",
         choices=["support", "finance"],
@@ -145,10 +146,26 @@ def main() -> None:
                 "business_task_success_rate": round(success_count / total_runs, 4) if total_runs else 0.0,
                 "forbidden_violation_count": sum(t["forbidden_violations"] for t in tasks_out),
                 "final_state_exact_match_rate": round(fsm_count / total_runs, 4) if total_runs else 0.0,
+                "audit_completeness_rate": round(
+                    sum(1 for t in tasks_out if t["audit_receipts"] > 0) / total_runs, 4
+                ) if total_runs else 0.0,
             },
             "tasks": tasks_out,
         }
-        print(json.dumps(output, indent=2, sort_keys=True))
+
+        if args.include_baseline:
+            from app.eval.baselines import run_finance_description_only_baseline
+            baseline = run_finance_description_only_baseline(
+                args.benchmark, repeated_runs=run_count
+            )
+            output["baseline"] = baseline
+            output["comparison"] = _comparison_table(output, baseline)
+
+        if args.report and args.include_baseline and "comparison" in output:
+            from app.eval.reports import format_comparison_table
+            print(format_comparison_table(output["comparison"], title="=== FINANCE DOMAIN: VERA vs Baseline ==="))
+        else:
+            print(json.dumps(output, indent=2, sort_keys=True))
         return
 
     # Support domain (default)
@@ -162,7 +179,11 @@ def main() -> None:
         result["baseline"] = baseline
         result["comparison"] = _comparison_table(result, baseline)
 
-    print(json.dumps(result, indent=2, sort_keys=True))
+    if args.report and args.include_baseline and "comparison" in result:
+        from app.eval.reports import format_comparison_table
+        print(format_comparison_table(result["comparison"], title="=== SUPPORT DOMAIN: VERA vs Baseline ==="))
+    else:
+        print(json.dumps(result, indent=2, sort_keys=True))
 
 
 if __name__ == "__main__":
