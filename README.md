@@ -1,5 +1,9 @@
 # VERA — Verified Execution Runtime for Agents
 
+**A runtime layer that stops tool-using AI agents from repeating side effects (like refunding a customer twice), by checking real business state before and after every action.**
+
+> **Status:** research prototype. The state-transition engine, policy and approval gates, timeout recovery, audit receipts, benchmark and operator UI are implemented and tested. Intent extraction currently runs in **fixture mode** (`SAFEFLOW_MODEL_MODE=fixture_fallback`): extraction results come from deterministic fixtures, and the live Qwen call is not implemented yet. Benchmark numbers below therefore measure the runtime's control logic, not live model quality.
+
 ## The Problem
 
 AI agents duplicate financial actions.
@@ -26,7 +30,7 @@ The key scenario — timeout after commit:
 
 ## Benchmark Results
 
-Evaluated on 120 support cases, 5 repeated runs each:
+Evaluated on 120 synthetic support cases, 5 repeated runs each, in fixture mode (see Status above):
 
 | Metric | VERA | Baseline | Delta |
 |---|---|---|---|
@@ -38,13 +42,13 @@ Evaluated on 120 support cases, 5 repeated runs each:
 | Approval Recall | **100%** | 0% | +100 pp |
 | Audit Completeness | **100%** | 0% | +100 pp |
 
-Baseline is the same Qwen model with tool names, descriptions, and schemas only — no transition metadata, no policy engine, no audit.
+Baseline is the same tool set and the same extracted intents, but with tool names, descriptions and schemas only: no transition metadata, no policy engine, no audit.
 
 ![Evaluation framework](docs/diagrams/eval_framework.png)
 
 ## What It Does
 
-- Extract intent and desired state transition from customer emails using Qwen.
+- Extract intent and desired state transition from customer emails (Qwen integration planned; fixtures today).
 - Inspect customer, order, payment, refund, and ticket state.
 - Select tools by declared transition affordance, not description alone.
 - Enforce preconditions, policy, and approval gates.
@@ -181,3 +185,14 @@ SAFEFLOW_MODEL_MODE=fixture_fallback
 - Code structure: `docs/development/code_structure.md`
 - Setup decisions: `docs/development/setup_decisions.md`
 - Test data criteria: `docs/development/test_data_criteria.md`
+
+## Roadmap
+
+- [ ] Live Qwen extraction with schema validation, bounded repair/retry and timeouts
+- [ ] Re-run the benchmark with live model calls and report live and fixture results separately
+- [ ] Persist workflow state so a run can resume after a process restart
+- [ ] LLM tracing: tokens, cost, latency and schema failures per step
+
+## Author
+
+Built by [Nguyen Huyen Trang](https://github.com/HuyenTrang0506).
